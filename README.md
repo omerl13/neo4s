@@ -3,6 +3,7 @@
 
 This app allows you to run cypher queries and get the results, all over splunk. This allows you to take advantage of both neo4j's cypher and splunk's SPL.
 
+App page on SplunkBase: https://splunkbase.splunk.com/app/3883/
 ## Examples
 
 Basic usage:
@@ -21,11 +22,11 @@ Using bolt protocol:
 ```
 
 ## Options
-- `host` <small><b>(required)</b></small>: Hostname + graph port (7474)
-- `query` <small><b>(required)</b></small>: Cypher query to run on the graph (can be of any kind)
-- `username` <small><b>(optional)</b></small>: Username for authentication
-- `password` <small><b>(optional)</b></small>: Password for authentication
-- `scheme`<small><b>(optional)</b></small>: Default to HTTP
+- <b>`host`</b> <i>(required)</i>: Hostname + graph port (port is optional, default port is 7474 for HTTP and 7687 for bolt)
+- <b>`query`</b> <i>(required)</i>: Cypher query to run on the graph (can be of any kind)
+- <b>`username`</b> <i>(optional)</i>: Username for authentication
+- <b>`password`</b> <i>(optional)</i>: Password for authentication
+- <b>`scheme`</b> <i>(optional)</i>: Default to HTTP
 
 ## Protocol
 This app can query neo4j graphs in bolt protocol. The default is HTTP, in order to use bolt, set `scheme="bolt"` and use the bolt port at the end of the `host` parameter.
