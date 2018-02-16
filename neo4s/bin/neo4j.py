@@ -1,5 +1,5 @@
 import json
-from py2neo import authenticate, Graph, NodeSelector
+from py2neo import authenticate, Graph, NodeSelector, Node, Relationship
 import sys
 import time
 from splunklib.searchcommands import dispatch, GeneratingCommand, Configuration, Option, validators
@@ -12,7 +12,6 @@ class Neo4jCommand(GeneratingCommand):
     username = Option(require=False, default="")
     password = Option(require=False, default="")
     scheme = Option(require=False, default="http")
-    extract_fields = Option(require=False, default=True)
 
     def __get_data(self, query, host, username, password, scheme):
         url = scheme + "://" + host
@@ -27,17 +26,21 @@ class Neo4jCommand(GeneratingCommand):
 
     def with_field_extraction(self, results):
         for r in results:
-            data = dict(r)
+            data = {}
+            result_dict = dict(r)
+            for k,v in result_dict.iteritems():
+                if isinstance(v, Node) or isinstance(v, Relationship):
+                    for inner_k, inner_v in dict(v).iteritems():
+                        data[k + "." + inner_k] = inner_v
+                else:
+                    data[k] = v
             data["_raw"] = r
             yield data
 
     def generate(self):
         results = self.__get_data(self.query, self.host,
                                   self.username, self.password, self.scheme)
-        if self.extract_fields:
-            return self.with_field_extraction(results)
-        else:
-            return ({'_raw': result} for result in results)
+        return self.with_field_extraction(results)
 
 
 dispatch(Neo4jCommand, sys.argv, sys.stdin, sys.stdout, __name__)
