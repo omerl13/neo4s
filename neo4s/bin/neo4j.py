@@ -1,8 +1,9 @@
 import json
-from py2neo import authenticate, Graph, NodeSelector, Node, Relationship
 import sys
 import time
 from splunklib.searchcommands import dispatch, GeneratingCommand, Configuration, Option, validators
+from neo4j import GraphDatabase, basic_auth
+from neo4j.graph import Node, Relationship
 
 
 @Configuration()
@@ -16,21 +17,26 @@ class Neo4jCommand(GeneratingCommand):
     def __get_data(self, query, host, username, password, scheme):
         url = scheme + "://" + host
         # set up authentication parameters
+        auth = None
         if username != "" and password != "":
-            authenticate(host, username, password)
-
-        # connect to authenticated graph database
-        graph = Graph(url + "/db/data/")
-        a = graph.run(query)
-        return a.data()
+            auth = basic_auth(username, password)
+        driver = GraphDatabase.driver(
+            url,
+            auth=auth)
+        session = driver.session()
+        results = session.run(query, parameters={})
+        for record in results:
+            yield(record)
 
     def with_field_extraction(self, results):
+        # return results
         for r in results:
             data = {}
             result_dict = dict(r)
-            for k,v in result_dict.iteritems():
+            for k,v in result_dict.items():
                 if isinstance(v, Node) or isinstance(v, Relationship):
-                    for inner_k, inner_v in dict(v).iteritems():
+                    print(type(v))
+                    for inner_k, inner_v in dict(v).items():
                         data[k + "." + inner_k] = inner_v
                 else:
                     data[k] = v
@@ -43,4 +49,4 @@ class Neo4jCommand(GeneratingCommand):
         return self.with_field_extraction(results)
 
 
-dispatch(Neo4jCommand, sys.argv, sys.stdin, sys.stdout, __name__)
+dispatch(Neo4jCommand, module_name=__name__)
