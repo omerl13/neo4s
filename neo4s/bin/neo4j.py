@@ -12,7 +12,7 @@ class Neo4jCommand(GeneratingCommand):
     host = Option(require=True)
     username = Option(require=False, default="")
     password = Option(require=False, default="")
-    scheme = Option(require=False, default="http")
+    scheme = Option(require=False, default="bolt")
 
     def __get_data(self, query, host, username, password, scheme):
         url = scheme + "://" + host
