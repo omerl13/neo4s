@@ -32,5 +32,5 @@ Using bolt protocol:
 This app can query neo4j graphs in bolt protocol. The default is HTTP, in order to use bolt, set `scheme="bolt"` and use the bolt port at the end of the `host` parameter.
 
 ## Credits
-- Uses neo4j python client [py2neo](https://github.com/technige/py2neo)
+- Uses neo4j official python client [neo4j-driver](https://neo4j.com/docs/api/python-driver/current/)
 - App icon is taken from [Icons8](https://icons8.com/)
