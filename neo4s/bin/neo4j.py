@@ -4,7 +4,7 @@ import time
 from splunklib.searchcommands import dispatch, GeneratingCommand, Configuration, Option, validators
 from neo4j import GraphDatabase, basic_auth
 from neo4j.graph import Node, Relationship
-
+from fields_extractor import FieldsExtractor
 
 @Configuration()
 class Neo4jCommand(GeneratingCommand):
@@ -28,25 +28,12 @@ class Neo4jCommand(GeneratingCommand):
         for record in results:
             yield(record)
 
-    def with_field_extraction(self, results):
-        # return results
-        for r in results:
-            data = {}
-            result_dict = dict(r)
-            for k,v in result_dict.items():
-                if isinstance(v, Node) or isinstance(v, Relationship):
-                    print(type(v))
-                    for inner_k, inner_v in dict(v).items():
-                        data[k + "." + inner_k] = inner_v
-                else:
-                    data[k] = v
-            data["_raw"] = r
-            yield data
-
     def generate(self):
         results = self.__get_data(self.query, self.host,
                                   self.username, self.password, self.scheme)
-        return self.with_field_extraction(results)
+        
+        fields_extractor = FieldsExtractor()
+        return fields_extractor.extract(results)
 
 
 dispatch(Neo4jCommand, module_name=__name__)
