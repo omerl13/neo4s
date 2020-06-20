@@ -12,7 +12,6 @@ class FieldsExtractor:
                     data[f'{k}.id'] = v.id
                     # Parse items
                     for inner_k, inner_v in v.items():
-                        print(inner_k, inner_v)
                         data[f'{k}.{inner_k}'] = inner_v
                     # Parse labels
                     if isinstance(v, Node) and v.labels:
@@ -21,12 +20,5 @@ class FieldsExtractor:
                         data[f'{k}.type'] = v.type
                 else:
                     data[k] = v
-            data["_raw"] = r
+            data["_raw"] = str(r)
             yield data
-    
-    def parse_node(self, node, base_key):
-        pass
-    
-    def parse_relationship(self, relationship, base_key):
-        pass
-    
