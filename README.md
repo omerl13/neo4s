@@ -22,15 +22,15 @@ Using bolt protocol:
 ```
 
 ## Options
-- <b>`host`</b> <i>(required)</i>: Hostname + graph port (port is optional, default port is 7474 for HTTP and 7687 for bolt)
+- <b>`host`</b> <i>(required)</i>: Hostname + graph port (port is optional)
 - <b>`query`</b> <i>(required)</i>: Cypher query to run on the graph (can be of any kind)
 - <b>`username`</b> <i>(optional)</i>: Username for authentication
 - <b>`password`</b> <i>(optional)</i>: Password for authentication
-- <b>`scheme`</b> <i>(optional)</i>: Default to HTTP
+- <b>`scheme`</b> <i>(optional)</i>: Default to bolt
 
 ## Protocol
-This app can query neo4j graphs in bolt protocol. The default is HTTP, in order to use bolt, set `scheme="bolt"` and use the bolt port at the end of the `host` parameter.
+The default is bolt, in order to use different scheme in the url, set `scheme="<scheme_name>"` and use the appropriate port at the end of the `host` parameter.
 
 ## Credits
-- Uses neo4j python client [py2neo](https://github.com/technige/py2neo)
+- Uses neo4j official python client [neo4j-driver](https://neo4j.com/docs/api/python-driver/current/)
 - App icon is taken from [Icons8](https://icons8.com/)
