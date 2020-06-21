@@ -8,7 +8,7 @@
       </input>
       <input type="text" token="host">
         <label>Host</label>
-        <default>host:7474</default>
+        <default>host:7687</default>
       </input>
       <table>
         <search>

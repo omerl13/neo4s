@@ -8,17 +8,17 @@ App page on SplunkBase: https://splunkbase.splunk.com/app/3883/
 
 Basic usage:
 ```
-| neo4j host="mygraph.com:7474" query="MATCH (n)-[r]->(m) RETURN n,r,m" | table *
+| neo4j host="mygraph.com:7687" query="MATCH (n)-[r]->(m) RETURN n,r,m" | table *
 ```
 
 Using neo4j authentication:
 ```
-| neo4j host="secretgraph.com:7474" username="neo4j" password="neo4j" query="MATCH (n) RETURN n LIMIT 10"
+| neo4j host="secretgraph.com:7687" username="neo4j" password="neo4j" query="MATCH (n) RETURN n LIMIT 10"
 ```
 
-Using bolt protocol:
+Using different scheme:
 ```
-| neo4j host="mygraph.com:7687" scheme="bolt" query="MATCH (n) RETURN n" | table *
+| neo4j host="mygraph.com:7687" scheme="neo4j" query="MATCH (n) RETURN n" | table *
 ```
 
 ## Options
