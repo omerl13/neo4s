@@ -1,18 +1,27 @@
 <form>
   <label>Neo4j</label>
-  <fieldset submitButton="false"></fieldset>
+  <fieldset submitButton="true">
+    <input type="text" token="query">
+      <label>Query</label>
+    </input>
+    <input type="text" token="host">
+      <label>Host</label>
+      <default>host:7687</default>
+    </input>
+    <input type="text" token="username">
+      <label>Username</label>
+      <default></default>
+    </input>
+    <input type="text" token="password">
+      <label>Password</label>
+      <default></default>
+    </input>
+  </fieldset>
   <row>
     <panel>
-      <input type="text" token="query">
-        <label>Query</label>
-      </input>
-      <input type="text" token="host">
-        <label>Host</label>
-        <default>host:7687</default>
-      </input>
       <table>
         <search>
-          <query>| neo4j host="$host$" query="$query$" |</query>
+          <query>| neo4j username="$username$" password="$password$" host="$host$" query="$query$" |</query>
           <earliest>0</earliest>
           <latest></latest>
           <sampleRatio>1</sampleRatio>
@@ -21,6 +30,7 @@
         <option name="dataOverlayMode">none</option>
         <option name="drilldown">cell</option>
         <option name="percentagesRow">false</option>
+        <option name="refresh.display">progressbar</option>
         <option name="rowNumbers">false</option>
         <option name="totalsRow">false</option>
         <option name="wrap">true</option>
