@@ -2,6 +2,8 @@
 Overview
 ================================================
 
+This app is a fork of the neo4s app https://github.com/omerl13/neo4s, updated to support newer neo4j versions and to allow taking advantage of the multiple dbs in neo4j.
+
 This app allows you to run cypher queries and get the results, all over splunk. This allows you to take advantage of both neo4j's cypher and splunk's SPL.
 
 
@@ -16,7 +18,7 @@ Install this app into Splunk by doing the following:
   4. Click upload
   5. Restart Splunk if a dialog asks you to
 
-Once the app is installed, you can use can open the "neo4s" app from the main launcher.
+Once the app is installed, you can use can open the "neo4j-splunk" app from the main launcher.
 
 
 ================================================
@@ -25,4 +27,4 @@ Getting Support
 
 You can access the source-code and get technical details about the app at:
 
-     https://github.com/omerl13/neo4s
+     https://github.com/moshiAl/neo4j-splunk
