@@ -13,8 +13,9 @@ class Neo4jCommand(GeneratingCommand):
     username = Option(require=False, default="")
     password = Option(require=False, default="")
     scheme = Option(require=False, default="bolt")
+    database = Option(require=False, default="neo4j")
 
-    def __get_data(self, query, host, username, password, scheme):
+    def __get_data(self, query, host, username, password, scheme, database):
         url = scheme + "://" + host
         # set up authentication parameters
         auth = None
@@ -23,14 +24,19 @@ class Neo4jCommand(GeneratingCommand):
         driver = GraphDatabase.driver(
             url,
             auth=auth)
-        session = driver.session()
-        results = session.run(query, parameters={})
+        with driver.session(database=database) as session:
+            results = session.run(query, parameters={})
+            
         for record in results:
             yield(record)
 
     def generate(self):
-        results = self.__get_data(self.query, self.host,
-                                  self.username, self.password, self.scheme)
+        results = self.__get_data(self.query,
+                                  self.host,
+                                  self.username,
+                                  self.password,
+                                  self.scheme,
+                                  self.database)
         
         fields_extractor = FieldsExtractor()
         return fields_extractor.extract(results)
