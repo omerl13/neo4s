@@ -10,7 +10,7 @@ jobs:
     - uses: actions/checkout@v2
 
     - name: Pack app as tgz
-      run: tar -zcf neo4j-splunk.tgz neo4j-splunk
+      run: tar -zcf neo4j-splunk.tgz neo4s
     - name: Upload a Build Artifact
       uses: actions/upload-artifact@v2
       with:
