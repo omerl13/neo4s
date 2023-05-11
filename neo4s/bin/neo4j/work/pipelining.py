@@ -29,14 +29,13 @@ from neo4j.api import (
     WRITE_ACCESS,
 )
 
-class PipelineConfig(WorkspaceConfig):
 
+class PipelineConfig(WorkspaceConfig):
     #:
     flush_every = 8192  # bytes
 
 
 class Pipeline(Workspace):
-
     def __init__(self, pool, config):
         assert isinstance(config, PipelineConfig)
         super(Pipeline, self).__init__(pool, config)
@@ -83,7 +82,6 @@ class PullOrderException(Exception):
 
 
 class Pusher(Thread):
-
     def __init__(self, pipeline):
         super(Pusher, self).__init__()
         self.pipeline = pipeline
@@ -97,7 +95,6 @@ class Pusher(Thread):
 
 
 class Puller(Thread):
-
     def __init__(self, pipeline):
         super(Puller, self).__init__()
         self.pipeline = pipeline
@@ -107,12 +104,13 @@ class Puller(Thread):
     def run(self):
         while self.running:
             for _ in self.pipeline.pull():
-                pass    # consume and discard records
+                pass  # consume and discard records
             self.count += 1
 
 
 def main():
     from neo4j import Driver
+
     # from neo4j.bolt.diagnostics import watch
     # watch("neobolt")
     with Driver("bolt://", auth=("neo4j", "password")) as dx:
@@ -123,7 +121,10 @@ def main():
             pusher.start()
             puller.start()
             while True:
-                print("sent %d, received %d, backlog %d" % (pusher.count, puller.count, pusher.count - puller.count))
+                print(
+                    "sent %d, received %d, backlog %d"
+                    % (pusher.count, puller.count, pusher.count - puller.count)
+                )
                 sleep(1)
         except KeyboardInterrupt:
             pusher.running = False

@@ -44,11 +44,13 @@ class Result:
         self._fetch_size = fetch_size
 
         # states
-        self._discarding = False    # discard the remainder of records
-        self._attached = False      # attached to a connection
-        self._streaming = False     # there is still more records to buffer upp on the wire
-        self._has_more = False      # there is more records available to pull from the server
-        self._closed = False        # the result have been properly iterated or consumed fully
+        self._discarding = False  # discard the remainder of records
+        self._attached = False  # attached to a connection
+        self._streaming = False  # there is still more records to buffer upp on the wire
+        self._has_more = (
+            False  # there is more records available to pull from the server
+        )
+        self._closed = False  # the result have been properly iterated or consumed fully
 
     def _tx_ready_run(self, query, parameters, **kwparameters):
         # BEGIN+RUN does not carry any extra on the RUN message.
@@ -61,7 +63,9 @@ class Result:
         query_metadata = getattr(query, "metadata", None)
         query_timeout = getattr(query, "timeout", None)
 
-        parameters = DataDehydrator.fix_parameters(dict(parameters or {}, **kwparameters))
+        parameters = DataDehydrator.fix_parameters(
+            dict(parameters or {}, **kwparameters)
+        )
 
         self._metadata = {
             "query": query_text,
@@ -76,7 +80,9 @@ class Result:
 
         def on_attached(metadata):
             self._metadata.update(metadata)
-            self._qid = metadata.get("qid", -1)  # For auto-commit there is no qid and Bolt 3 do not support qid
+            self._qid = metadata.get(
+                "qid", -1
+            )  # For auto-commit there is no qid and Bolt 3 do not support qid
             self._keys = metadata.get("fields")
             self._attached = True
 
@@ -101,11 +107,12 @@ class Result:
         self._attach()
 
     def _pull(self):
-
         def on_records(records):
             self._streaming = True
             if not self._discarding:
-                self._record_buffer.extend(self._hydrant.hydrate_records(self._keys, records))
+                self._record_buffer.extend(
+                    self._hydrant.hydrate_records(self._keys, records)
+                )
 
         def on_summary():
             self._attached = False
@@ -180,7 +187,9 @@ class Result:
             while self._record_buffer:
                 yield self._record_buffer.popleft()
 
-            while self._attached is True:  # _attached is set to False for _pull on_summary and _discard on_summary
+            while (
+                self._attached is True
+            ):  # _attached is set to False for _pull on_summary and _discard on_summary
                 self._connection.fetch_message()  # Receive at least one message from the server, if available.
                 if self._attached:
                     if self._record_buffer:
@@ -195,15 +204,13 @@ class Result:
         self._closed = True
 
     def _attach(self):
-        """Sets the Result object in an attached state by fetching messages from the connection to the buffer.
-        """
+        """Sets the Result object in an attached state by fetching messages from the connection to the buffer."""
         if self._closed is False:
             while self._attached is False:
                 self._connection.fetch_message()
 
     def _buffer_all(self):
-        """Sets the Result object in an detached state by fetching all records from the connection to the buffer.
-        """
+        """Sets the Result object in an detached state by fetching all records from the connection to the buffer."""
         record_buffer = deque()
         for record in self:
             record_buffer.append(record)
@@ -252,12 +259,17 @@ class Result:
         :returns: the next :class:`.Record` or :const:`None` if none remain
         :warns: if more than one record is available
         """
-        records = list(self)  # TODO: exhausts the result with self.consume if there are more records.
+        records = list(
+            self
+        )  # TODO: exhausts the result with self.consume if there are more records.
         size = len(records)
         if size == 0:
             return None
         if size != 1:
-            warn("Expected a result with a single record, but this result contains %d" % size)
+            warn(
+                "Expected a result with a single record, but this result contains %d"
+                % size
+            )
         return records[0]
 
     def peek(self):
@@ -315,4 +327,3 @@ class Result:
     #     :returns: list of dictionaries
     #     """
     #     return [record.data(*items) for record in self]
-

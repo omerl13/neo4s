@@ -16,7 +16,7 @@ Install this app into Splunk by doing the following:
   4. Click upload
   5. Restart Splunk if a dialog asks you to
 
-Once the app is installed, you can use can open the "neo4s" app from the main launcher.
+Once the app is installed, you can use can open the "neo4j-splunk" app from the main launcher.
 
 
 ================================================
@@ -25,4 +25,4 @@ Getting Support
 
 You can access the source-code and get technical details about the app at:
 
-     https://github.com/omerl13/neo4s
+     https://github.com/moshiAl/neo4j-splunk
