@@ -1,5 +1,6 @@
 # neo4s
 ## Use the power of neo4j over Splunk.
+This app is a fork of the neo4s app https://github.com/omerl13/neo4s, updated to support newer neo4j versions and to allow taking advantage of the multiple dbs in neo4j.
 
 This app is a fork of the neo4s app https://github.com/omerl13/neo4s, updated to support newer neo4j versions and to allow taking advantage of the multiple dbs in neo4j.
 
