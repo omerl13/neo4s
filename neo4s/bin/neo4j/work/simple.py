@@ -113,7 +113,11 @@ class Session(Workspace):
             self._connection.send_all()
             self._connection.fetch_all()
             self._disconnect()
-        self._connection = self._pool.acquire(access_mode=access_mode, timeout=self._config.connection_acquisition_timeout, database=database)
+        self._connection = self._pool.acquire(
+            access_mode=access_mode,
+            timeout=self._config.connection_acquisition_timeout,
+            database=database,
+        )
 
     def _disconnect(self):
         if self._connection:
@@ -131,8 +135,7 @@ class Session(Workspace):
             self._disconnect()
 
     def close(self):
-        """Close the session. This will release any borrowed resources, such as connections, and will roll back any outstanding transactions.
-        """
+        """Close the session. This will release any borrowed resources, such as connections, and will roll back any outstanding transactions."""
         if self._connection:
             if self._autoResult:
                 if self._state_failed is False:
@@ -206,15 +209,26 @@ class Session(Workspace):
             self._autoResult._buffer_all()  # This will buffer upp all records for the previous auto-transaction
 
         if not self._connection:
-            self._connect(self._config.default_access_mode, database=self._config.database)
+            self._connect(
+                self._config.default_access_mode, database=self._config.database
+            )
         cx = self._connection
         protocol_version = cx.PROTOCOL_VERSION
         server_info = cx.server_info
 
         hydrant = DataHydrator()
 
-        self._autoResult = Result(cx, hydrant, self._config.fetch_size, self._result_closed)
-        self._autoResult._run(query, parameters, self._config.database, self._config.default_access_mode, self._bookmarks, **kwparameters)
+        self._autoResult = Result(
+            cx, hydrant, self._config.fetch_size, self._result_closed
+        )
+        self._autoResult._run(
+            query,
+            parameters,
+            self._config.database,
+            self._config.default_access_mode,
+            self._bookmarks,
+            **kwparameters,
+        )
 
         return self._autoResult
 
@@ -234,7 +248,7 @@ class Session(Workspace):
             self._transaction = None
 
         if len(self._bookmarks):
-            return self._bookmarks[len(self._bookmarks)-1]
+            return self._bookmarks[len(self._bookmarks) - 1]
         return None
 
     def _transaction_closed_handler(self):
@@ -245,11 +259,15 @@ class Session(Workspace):
 
     def _open_transaction(self, *, access_mode, database, metadata=None, timeout=None):
         self._connect(access_mode=access_mode, database=database)
-        self._transaction = Transaction(self._connection, self._config.fetch_size, self._transaction_closed_handler)
-        self._transaction._begin(database, self._bookmarks, access_mode, metadata, timeout)
+        self._transaction = Transaction(
+            self._connection, self._config.fetch_size, self._transaction_closed_handler
+        )
+        self._transaction._begin(
+            database, self._bookmarks, access_mode, metadata, timeout
+        )
 
     def begin_transaction(self, metadata=None, timeout=None):
-        """ Begin a new unmanaged transaction. Creates a new :class:`.Transaction` within this session.
+        """Begin a new unmanaged transaction. Creates a new :class:`.Transaction` within this session.
             At most one transaction may exist in a session at any point in time.
             To maintain multiple concurrent transactions, use multiple concurrent sessions.
 
@@ -283,19 +301,27 @@ class Session(Workspace):
         if self._transaction:
             raise TransactionError("Explicit transaction already open")
 
-        self._open_transaction(access_mode=self._config.default_access_mode, database=self._config.database, metadata=metadata, timeout=timeout)
+        self._open_transaction(
+            access_mode=self._config.default_access_mode,
+            database=self._config.database,
+            metadata=metadata,
+            timeout=timeout,
+        )
 
         return self._transaction
 
     def _run_transaction(self, access_mode, transaction_function, *args, **kwargs):
-
         if not callable(transaction_function):
             raise TypeError("Unit of work is not callable")
 
         metadata = getattr(transaction_function, "metadata", None)
         timeout = getattr(transaction_function, "timeout", None)
 
-        retry_delay = retry_delay_generator(self._config.initial_retry_delay, self._config.retry_delay_multiplier, self._config.retry_delay_jitter_factor)
+        retry_delay = retry_delay_generator(
+            self._config.initial_retry_delay,
+            self._config.retry_delay_multiplier,
+            self._config.retry_delay_jitter_factor,
+        )
 
         errors = []
 
@@ -303,7 +329,12 @@ class Session(Workspace):
 
         while True:
             try:
-                self._open_transaction(access_mode=access_mode, database=self._config.database, metadata=metadata, timeout=timeout)
+                self._open_transaction(
+                    access_mode=access_mode,
+                    database=self._config.database,
+                    metadata=metadata,
+                    timeout=timeout,
+                )
                 tx = self._transaction
                 try:
                     result = transaction_function(tx, *args, **kwargs)
@@ -322,12 +353,18 @@ class Session(Workspace):
             else:
                 return result
             if t0 == -1:
-                t0 = perf_counter()  # The timer should be started after the first attempt
+                t0 = (
+                    perf_counter()
+                )  # The timer should be started after the first attempt
             t1 = perf_counter()
             if t1 - t0 > self._config.max_transaction_retry_time:
                 break
             delay = next(retry_delay)
-            log.warning("Transaction failed and will be retried in {}s ({})".format(delay, "; ".join(errors[-1].args)))
+            log.warning(
+                "Transaction failed and will be retried in {}s ({})".format(
+                    delay, "; ".join(errors[-1].args)
+                )
+            )
             sleep(delay)
 
         if errors:
@@ -379,11 +416,13 @@ class Session(Workspace):
         :param kwargs: key word arguments for the `transaction_function`
         :return: a result as returned by the given unit of work
         """
-        return self._run_transaction(WRITE_ACCESS, transaction_function, *args, **kwargs)
+        return self._run_transaction(
+            WRITE_ACCESS, transaction_function, *args, **kwargs
+        )
 
 
 class Query:
-    """ Create a new query.
+    """Create a new query.
 
     :param text: The query text.
     :type text: str
@@ -392,6 +431,7 @@ class Query:
     :param timeout: seconds.
     :type timeout: int
     """
+
     def __init__(self, text, metadata=None, timeout=None):
         self.text = text
 
@@ -428,7 +468,6 @@ def unit_of_work(metadata=None, timeout=None):
     """
 
     def wrapper(f):
-
         def wrapped(*args, **kwargs):
             return f(*args, **kwargs)
 

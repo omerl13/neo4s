@@ -26,7 +26,6 @@ from neo4j.packstream import (
 
 
 class MessageInbox:
-
     def __init__(self, s, on_error):
         self.on_error = on_error
         self._messages = self._yield_messages(s)

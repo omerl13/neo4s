@@ -57,11 +57,11 @@ from neo4j.api import ServerInfo
 from neo4j.addressing import Address
 
 from logging import getLogger
+
 log = getLogger("neo4j")
 
 
 class Bolt3(Bolt):
-
     PROTOCOL_VERSION = Version(3, 0)
 
     # The socket
@@ -76,10 +76,20 @@ class Bolt3(Bolt):
     #: The pool of which this connection is a member
     pool = None
 
-    def __init__(self, unresolved_address, sock, max_connection_lifetime, *, auth=None, user_agent=None):
+    def __init__(
+        self,
+        unresolved_address,
+        sock,
+        max_connection_lifetime,
+        *,
+        auth=None,
+        user_agent=None,
+    ):
         self.unresolved_address = unresolved_address
         self.socket = sock
-        self.server_info = ServerInfo(Address(sock.getpeername()), Bolt3.PROTOCOL_VERSION)
+        self.server_info = ServerInfo(
+            Address(sock.getpeername()), Bolt3.PROTOCOL_VERSION
+        )
         self.outbox = Outbox()
         self.inbox = Inbox(self.socket, on_error=self._set_defunct)
         self.packer = Packer(self.outbox)
@@ -102,6 +112,7 @@ class Bolt3(Bolt):
             self.auth_dict = {}
         elif isinstance(auth, tuple) and 2 <= len(auth) <= 3:
             from neo4j import Auth
+
             self.auth_dict = vars(Auth("basic", *auth))
         else:
             try:
@@ -140,14 +151,31 @@ class Bolt3(Bolt):
         if "credentials" in logged_headers:
             logged_headers["credentials"] = "*******"
         log.debug("[#%04X]  C: HELLO %r", self.local_port, logged_headers)
-        self._append(b"\x01", (headers,),
-                     response=InitResponse(self, on_success=self.server_info.metadata.update))
+        self._append(
+            b"\x01",
+            (headers,),
+            response=InitResponse(self, on_success=self.server_info.metadata.update),
+        )
         self.send_all()
         self.fetch_all()
 
-    def run(self, query, parameters=None, mode=None, bookmarks=None, metadata=None, timeout=None, db=None, **handlers):
+    def run(
+        self,
+        query,
+        parameters=None,
+        mode=None,
+        bookmarks=None,
+        metadata=None,
+        timeout=None,
+        db=None,
+        **handlers,
+    ):
         if db is not None:
-            raise ConfigurationError("Database name parameter for selecting database is not supported in Bolt Protocol {!r}. Database name {!r}.".format(Bolt3.PROTOCOL_VERSION, db))
+            raise ConfigurationError(
+                "Database name parameter for selecting database is not supported in Bolt Protocol {!r}. Database name {!r}.".format(
+                    Bolt3.PROTOCOL_VERSION, db
+                )
+            )
         if not parameters:
             parameters = {}
         extra = {}
@@ -170,7 +198,7 @@ class Bolt3(Bolt):
                 raise TypeError("Timeout must be specified as a number of seconds")
         fields = (query, parameters, extra)
         log.debug("[#%04X]  C: RUN %s", self.local_port, " ".join(map(repr, fields)))
-        if query.upper() == u"COMMIT":
+        if query.upper() == "COMMIT":
             self._append(b"\x10", fields, CommitResponse(self, **handlers))
         else:
             self._append(b"\x10", fields, Response(self, **handlers))
@@ -187,9 +215,21 @@ class Bolt3(Bolt):
         self._append(b"\x3F", (), Response(self, **handlers))
         self._is_reset = False
 
-    def begin(self, mode=None, bookmarks=None, metadata=None, timeout=None, db=None, **handlers):
+    def begin(
+        self,
+        mode=None,
+        bookmarks=None,
+        metadata=None,
+        timeout=None,
+        db=None,
+        **handlers,
+    ):
         if db is not None:
-            raise ConfigurationError("Database name parameter for selecting database is not supported in Bolt Protocol {!r}. Database name {!r}.".format(Bolt3.PROTOCOL_VERSION, db))
+            raise ConfigurationError(
+                "Database name parameter for selecting database is not supported in Bolt Protocol {!r}. Database name {!r}.".format(
+                    Bolt3.PROTOCOL_VERSION, db
+                )
+            )
         extra = {}
         if mode in (READ_ACCESS, "r"):
             extra["mode"] = "r"  # It will default to mode "w" if nothing is specified
@@ -221,7 +261,7 @@ class Bolt3(Bolt):
         self._append(b"\x13", (), Response(self, **handlers))
 
     def _append(self, signature, fields=(), response=None):
-        """ Add a message to the outgoing queue.
+        """Add a message to the outgoing queue.
 
         :arg signature: the signature of the message
         :arg fields: the fields of the message as a tuple
@@ -233,12 +273,14 @@ class Bolt3(Bolt):
         self.responses.append(response)
 
     def reset(self):
-        """ Add a RESET message to the outgoing queue, send
+        """Add a RESET message to the outgoing queue, send
         it and consume all remaining messages.
         """
 
         def fail(metadata):
-            raise BoltProtocolError("RESET failed %r" % metadata, address=self.unresolved_address)
+            raise BoltProtocolError(
+                "RESET failed %r" % metadata, address=self.unresolved_address
+            )
 
         log.debug("[#%04X]  C: RESET", self.local_port)
         self._append(b"\x0F", response=Response(self, on_failure=fail))
@@ -253,41 +295,55 @@ class Bolt3(Bolt):
             self.outbox.clear()
 
     def send_all(self):
-        """ Send all queued messages to the server.
-        """
+        """Send all queued messages to the server."""
         if self.closed():
-            raise ServiceUnavailable("Failed to write to closed connection {!r} ({!r})".format(
-                self.unresolved_address, self.server_info.address))
+            raise ServiceUnavailable(
+                "Failed to write to closed connection {!r} ({!r})".format(
+                    self.unresolved_address, self.server_info.address
+                )
+            )
 
         if self.defunct():
-            raise ServiceUnavailable("Failed to write to defunct connection {!r} ({!r})".format(
-                self.unresolved_address, self.server_info.address))
+            raise ServiceUnavailable(
+                "Failed to write to defunct connection {!r} ({!r})".format(
+                    self.unresolved_address, self.server_info.address
+                )
+            )
 
         try:
             self._send_all()
         except (IOError, OSError) as error:
-            log.error("Failed to write data to connection "
-                      "{!r} ({!r}); ({!r})".
-                      format(self.unresolved_address,
-                             self.server_info.address,
-                             "; ".join(map(repr, error.args))))
+            log.error(
+                "Failed to write data to connection "
+                "{!r} ({!r}); ({!r})".format(
+                    self.unresolved_address,
+                    self.server_info.address,
+                    "; ".join(map(repr, error.args)),
+                )
+            )
             if self.pool:
                 self.pool.deactivate(address=self.unresolved_address)
             raise
 
     def fetch_message(self):
-        """ Receive at least one message from the server, if available.
+        """Receive at least one message from the server, if available.
 
         :return: 2-tuple of number of detail messages and number of summary
                  messages fetched
         """
         if self._closed:
-            raise ServiceUnavailable("Failed to read from closed connection {!r} ({!r})".format(
-                self.unresolved_address, self.server_info.address))
+            raise ServiceUnavailable(
+                "Failed to read from closed connection {!r} ({!r})".format(
+                    self.unresolved_address, self.server_info.address
+                )
+            )
 
         if self._defunct:
-            raise ServiceUnavailable("Failed to read from defunct connection {!r} ({!r})".format(
-                self.unresolved_address, self.server_info.address))
+            raise ServiceUnavailable(
+                "Failed to read from defunct connection {!r} ({!r})".format(
+                    self.unresolved_address, self.server_info.address
+                )
+            )
 
         if not self.responses:
             return 0, 0
@@ -296,17 +352,22 @@ class Bolt3(Bolt):
         try:
             details, summary_signature, summary_metadata = next(self.inbox)
         except (IOError, OSError) as error:
-            log.error("Failed to read data from connection "
-                      "{!r} ({!r}); ({!r})".
-                      format(self.unresolved_address,
-                             self.server_info.address,
-                             "; ".join(map(repr, error.args))))
+            log.error(
+                "Failed to read data from connection "
+                "{!r} ({!r}); ({!r})".format(
+                    self.unresolved_address,
+                    self.server_info.address,
+                    "; ".join(map(repr, error.args)),
+                )
+            )
             if self.pool:
                 self.pool.deactivate(address=self.unresolved_address)
             raise
 
         if details:
-            log.debug("[#%04X]  S: RECORD * %d", self.local_port, len(details))  # Do not log any data
+            log.debug(
+                "[#%04X]  S: RECORD * %d", self.local_port, len(details)
+            )  # Do not log any data
             self.responses[0].on_records(details)
 
         if summary_signature is None:
@@ -333,15 +394,19 @@ class Bolt3(Bolt):
                     self.pool.on_write_failure(address=self.unresolved_address),
                 raise
         else:
-            raise BoltProtocolError("Unexpected response message with signature %02X" % summary_signature, address=self.unresolved_address)
+            raise BoltProtocolError(
+                "Unexpected response message with signature %02X" % summary_signature,
+                address=self.unresolved_address,
+            )
 
         return len(details), 1
 
     def _set_defunct(self, error=None):
         direct_driver = isinstance(self.pool, BoltPool)
 
-        message = ("Failed to read from defunct connection {!r} ({!r})".format(
-            self.unresolved_address, self.server_info.address))
+        message = "Failed to read from defunct connection {!r} ({!r})".format(
+            self.unresolved_address, self.server_info.address
+        )
 
         log.error(message)
         # We were attempting to receive data but the connection
@@ -365,10 +430,14 @@ class Bolt3(Bolt):
             raise SessionExpired(message)
 
     def timedout(self):
-        return 0 <= self._max_connection_lifetime <= perf_counter() - self._creation_timestamp
+        return (
+            0
+            <= self._max_connection_lifetime
+            <= perf_counter() - self._creation_timestamp
+        )
 
     def fetch_all(self):
-        """ Fetch all outstanding messages.
+        """Fetch all outstanding messages.
 
         :return: 2-tuple of number of detail messages and number of summary
                  messages fetched
@@ -383,8 +452,7 @@ class Bolt3(Bolt):
         return detail_count, summary_count
 
     def close(self):
-        """ Close the connection.
-        """
+        """Close the connection."""
         if not self._closed:
             if not self._defunct:
                 log.debug("[#%04X]  C: GOODBYE", self.local_port)
@@ -409,7 +477,6 @@ class Bolt3(Bolt):
 
 
 class Outbox:
-
     def __init__(self, capacity=8192, max_chunk_size=16384):
         self._max_chunk_size = max_chunk_size
         self._header = 0
@@ -438,30 +505,31 @@ class Outbox:
             else:
                 wrote = min(to_write, remaining)
                 new_end = self._end + wrote
-                self._data[self._end:new_end] = b[pos:pos+wrote]
+                self._data[self._end : new_end] = b[pos : pos + wrote]
                 self._end = new_end
                 pos += wrote
                 new_chunk_size = self._end - self._start
-                self._data[self._header:(self._header + 2)] = struct_pack(">H", new_chunk_size)
+                self._data[self._header : (self._header + 2)] = struct_pack(
+                    ">H", new_chunk_size
+                )
                 to_write -= wrote
 
     def chunk(self):
         self._header = self._end
         self._start = self._header + 2
         self._end = self._start
-        self._data[self._header:self._start] = b"\x00\x00"
+        self._data[self._header : self._start] = b"\x00\x00"
 
     def view(self):
         end = self._end
         chunk_size = end - self._start
         if chunk_size == 0:
-            return memoryview(self._data[:self._header])
+            return memoryview(self._data[: self._header])
         else:
             return memoryview(self._data[:end])
 
 
 class Inbox(MessageInbox):
-
     def __next__(self):
         tag, fields = self.pop()
         if tag == b"\x71":
@@ -473,7 +541,7 @@ class Inbox(MessageInbox):
 
 
 class Response:
-    """ Subscriber object for a full response (zero or
+    """Subscriber object for a full response (zero or
     more detail messages followed by one summary message).
     """
 
@@ -483,15 +551,13 @@ class Response:
         self.complete = False
 
     def on_records(self, records):
-        """ Called when one or more RECORD messages have been received.
-        """
+        """Called when one or more RECORD messages have been received."""
         handler = self.handlers.get("on_records")
         if callable(handler):
             handler(records)
 
     def on_success(self, metadata):
-        """ Called when a SUCCESS message has been received.
-        """
+        """Called when a SUCCESS message has been received."""
         handler = self.handlers.get("on_success")
         if callable(handler):
             handler(metadata)
@@ -500,8 +566,7 @@ class Response:
             handler()
 
     def on_failure(self, metadata):
-        """ Called when a FAILURE message has been received.
-        """
+        """Called when a FAILURE message has been received."""
         self.connection.reset()
         handler = self.handlers.get("on_failure")
         if callable(handler):
@@ -512,8 +577,7 @@ class Response:
         raise Neo4jError.hydrate(**metadata)
 
     def on_ignored(self, metadata=None):
-        """ Called when an IGNORED message has been received.
-        """
+        """Called when an IGNORED message has been received."""
         handler = self.handlers.get("on_ignored")
         if callable(handler):
             handler(metadata)
@@ -523,7 +587,6 @@ class Response:
 
 
 class InitResponse(Response):
-
     def on_failure(self, metadata):
         code = metadata.get("code")
         message = metadata.get("message", "Connection initialisation failed")
@@ -534,5 +597,4 @@ class InitResponse(Response):
 
 
 class CommitResponse(Response):
-
     pass

@@ -26,7 +26,7 @@ from splunklib.six.moves import map as imap, filter as ifilter
 
 
 class GeneratingCommand(SearchCommand):
-    """ Generates events based on command arguments.
+    """Generates events based on command arguments.
 
     Generating commands receive no input and must be the first command on a pipeline. There are three pipelines:
     streams, events, and reports. The streams pipeline generates or processes time-ordered event records on an
@@ -184,18 +184,19 @@ class GeneratingCommand(SearchCommand):
         streaming = false
 
     """
+
     # region Methods
 
     def generate(self):
-        """ A generator that yields records to the Splunk processing pipeline
+        """A generator that yields records to the Splunk processing pipeline
 
         You must override this method.
 
         """
-        raise NotImplementedError('GeneratingCommand.generate(self)')
+        raise NotImplementedError("GeneratingCommand.generate(self)")
 
     def _execute(self, ifile, process):
-        """ Execution loop
+        """Execution loop
 
         :param ifile: Input file object. Unused.
         :type ifile: file
@@ -210,10 +211,10 @@ class GeneratingCommand(SearchCommand):
                 return
 
             metadata, body = result
-            action = getattr(metadata, 'action', None)
+            action = getattr(metadata, "action", None)
 
-            if action != 'execute':
-                raise RuntimeError('Expected execute action, not {}'.format(action))
+            if action != "execute":
+                raise RuntimeError("Expected execute action, not {}".format(action))
 
         self._record_writer.write_records(self.generate())
         self.finish()
@@ -223,12 +224,14 @@ class GeneratingCommand(SearchCommand):
     # region Types
 
     class ConfigurationSettings(SearchCommand.ConfigurationSettings):
-        """ Represents the configuration settings for a :code:`GeneratingCommand` class.
+        """Represents the configuration settings for a :code:`GeneratingCommand` class."""
 
-        """
         # region SCP v1/v2 Properties
 
-        generating = ConfigurationSetting(readonly=True, value=True, doc='''
+        generating = ConfigurationSetting(
+            readonly=True,
+            value=True,
+            doc="""
             Tells Splunk that this command generates events, but does not process inputs.
 
             Generating commands must appear at the front of the search pipeline identified by :meth:`type`.
@@ -237,31 +240,37 @@ class GeneratingCommand(SearchCommand):
 
             Supported by: SCP 1, SCP 2
 
-            ''')
+            """,
+        )
 
         # endregion
 
         # region SCP v1 Properties
 
-        generates_timeorder = ConfigurationSetting(doc='''
+        generates_timeorder = ConfigurationSetting(
+            doc="""
             :const:`True`, if the command generates new events.
 
             Default: :const:`False`
 
             Supported by: SCP 1
 
-            ''')
+            """
+        )
 
-        local = ConfigurationSetting(doc='''
+        local = ConfigurationSetting(
+            doc="""
             :const:`True`, if the command should run locally on the search head.
 
             Default: :const:`False`
 
             Supported by: SCP 1
 
-            ''')
+            """
+        )
 
-        retainsevents = ConfigurationSetting(doc='''
+        retainsevents = ConfigurationSetting(
+            doc="""
             :const:`True`, if the command retains events the way the sort, dedup, and cluster commands do, or whether it
             transforms them the way the stats command does.
 
@@ -269,22 +278,27 @@ class GeneratingCommand(SearchCommand):
 
             Supported by: SCP 1
 
-            ''')
+            """
+        )
 
-        streaming = ConfigurationSetting(doc='''
+        streaming = ConfigurationSetting(
+            doc="""
             :const:`True`, if the command is streamable.
 
             Default: :const:`True`
 
             Supported by: SCP 1
 
-            ''')
+            """
+        )
 
         # endregion
 
         # region SCP v2 Properties
 
-        distributed = ConfigurationSetting(value=False, doc='''
+        distributed = ConfigurationSetting(
+            value=False,
+            doc="""
             True, if this command should be distributed to indexers.
 
             This value is ignored unless :meth:`type` is equal to :const:`streaming`. It is only this command type that
@@ -294,9 +308,12 @@ class GeneratingCommand(SearchCommand):
 
             Supported by: SCP 2
 
-            ''')
+            """,
+        )
 
-        type = ConfigurationSetting(value='streaming', doc='''
+        type = ConfigurationSetting(
+            value="streaming",
+            doc="""
             A command type name.
 
             ====================  ======================================================================================
@@ -311,7 +328,8 @@ class GeneratingCommand(SearchCommand):
 
             Supported by: SCP 2
 
-            ''')
+            """,
+        )
 
         # endregion
 
@@ -319,11 +337,9 @@ class GeneratingCommand(SearchCommand):
 
         @classmethod
         def fix_up(cls, command):
-            """ Verifies :code:`command` class structure.
-
-            """
+            """Verifies :code:`command` class structure."""
             if command.generate == GeneratingCommand.generate:
-                raise AttributeError('No GeneratingCommand.generate override')
+                raise AttributeError("No GeneratingCommand.generate override")
 
         # TODO: Stop looking like a dictionary because we don't obey the semantics
         # N.B.: Does not use Python 2 dict copy semantics
@@ -331,10 +347,16 @@ class GeneratingCommand(SearchCommand):
             iteritems = SearchCommand.ConfigurationSettings.iteritems(self)
             version = self.command.protocol_version
             if version == 2:
-                iteritems = ifilter(lambda name_value1: name_value1[0] != 'distributed', iteritems)
-                if not self.distributed and self.type == 'streaming':
+                iteritems = ifilter(
+                    lambda name_value1: name_value1[0] != "distributed", iteritems
+                )
+                if not self.distributed and self.type == "streaming":
                     iteritems = imap(
-                        lambda name_value: (name_value[0], 'stateful') if name_value[0] == 'type' else (name_value[0], name_value[1]), iteritems)
+                        lambda name_value: (name_value[0], "stateful")
+                        if name_value[0] == "type"
+                        else (name_value[0], name_value[1]),
+                        iteritems,
+                    )
             return iteritems
 
         # N.B.: Does not use Python 3 dict view semantics
