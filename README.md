@@ -1,5 +1,9 @@
 # neo4s
 ## Use the power of neo4j over Splunk.
+<p align="center">
+<a href="https://github.com/MoshiAL/neo4j-splunk"><img alt="Code style: black" src="https://img.shields.io/badge/code%20style-black-000000.svg"></a>
+</p>
+
 
 This app is a fork of the neo4s app https://github.com/omerl13/neo4s, updated to support newer neo4j versions and to allow taking advantage of the multiple dbs in neo4j.
 
