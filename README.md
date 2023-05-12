@@ -31,6 +31,9 @@ Using different database:
 | neo4j host="mygraph.com:7687" database="mydb" query="MATCH (n)-[r]->(m) RETURN n,r,m" | table *
 ```
 
+## How it looks in splunk
+![screenshot](static/neo4j_command_example.png)
+
 ## Options
 - <b>`host`</b> <i>(required)</i>: Hostname + graph port (port is optional)
 - <b>`query`</b> <i>(required)</i>: Cypher query to run on the graph (can be of any kind)

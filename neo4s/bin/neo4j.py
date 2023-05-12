@@ -31,9 +31,8 @@ class Neo4jCommand(GeneratingCommand):
         driver = GraphDatabase.driver(url, auth=auth)
         with driver.session(database=database) as session:
             results = session.run(query, parameters={})
-
-        for record in results:
-            yield (record)
+            for record in results:
+                yield (record)
 
     def generate(self):
         results = self.__get_data(
