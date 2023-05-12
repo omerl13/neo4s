@@ -15,7 +15,6 @@
 from __future__ import absolute_import
 import sys
 
-from io import TextIOWrapper, TextIOBase
 from splunklib.six import ensure_str
 from .event import ET
 
@@ -23,7 +22,6 @@ try:
     from splunklib.six.moves import cStringIO as StringIO
 except ImportError:
     from splunklib.six import StringIO
-
 
 class EventWriter(object):
     """``EventWriter`` writes events and error messages to Splunk from a modular input.
@@ -39,7 +37,7 @@ class EventWriter(object):
     ERROR = "ERROR"
     FATAL = "FATAL"
 
-    def __init__(self, output=sys.stdout, error=sys.stderr):
+    def __init__(self, output = sys.stdout, error = sys.stderr):
         """
         :param output: Where to write the output; defaults to sys.stdout.
         :param error: Where to write any errors; defaults to sys.stderr.
@@ -84,5 +82,6 @@ class EventWriter(object):
 
     def close(self):
         """Write the closing </stream> tag to make this XML well formed."""
-        self._out.write("</stream>")
+        if self.header_written:
+          self._out.write("</stream>")
         self._out.flush()
