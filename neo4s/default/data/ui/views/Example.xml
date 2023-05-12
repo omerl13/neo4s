@@ -21,7 +21,7 @@
     <panel>
       <table>
         <search>
-          <query>| neo4j username="$username$" password="$password$" host="$host$" query="$query$" |</query>
+          <query>| neo4j username="$username$" password="$password$" host="$host$" query="$query$" database="$database$" |</query>
           <earliest>0</earliest>
           <latest></latest>
           <sampleRatio>1</sampleRatio>
