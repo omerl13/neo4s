@@ -1,4 +1,4 @@
-# neo4s
+# neo4j-splunk
 ## Use the power of neo4j over Splunk.
 <p align="center">
 <a href="https://github.com/MoshiAL/neo4j-splunk"><img alt="Code style: black" src="https://img.shields.io/badge/code%20style-black-000000.svg"></a>
