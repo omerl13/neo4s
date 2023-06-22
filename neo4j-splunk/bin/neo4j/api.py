@@ -49,9 +49,8 @@ DRIVER_BOLT: te.Final[str] = "DRIVER_BOLT"
 DRIVER_NEO4J: te.Final[str] = "DRIVER_NEO4J"
 
 SECURITY_TYPE_NOT_SECURE: te.Final[str] = "SECURITY_TYPE_NOT_SECURE"
-SECURITY_TYPE_SELF_SIGNED_CERTIFICATE: te.Final[
-    str
-] = "SECURITY_TYPE_SELF_SIGNED_CERTIFICATE"
+SECURITY_TYPE_SELF_SIGNED_CERTIFICATE: te.Final[str] = \
+    "SECURITY_TYPE_SELF_SIGNED_CERTIFICATE"
 SECURITY_TYPE_SECURE: te.Final[str] = "SECURITY_TYPE_SECURE"
 
 URI_SCHEME_BOLT: te.Final[str] = "bolt"
@@ -65,9 +64,8 @@ URI_SCHEME_NEO4J_SECURE: te.Final[str] = "neo4j+s"
 URI_SCHEME_BOLT_ROUTING: te.Final[str] = "bolt+routing"
 
 # TODO: 6.0 - remove TRUST constants
-TRUST_SYSTEM_CA_SIGNED_CERTIFICATES: te.Final[
-    str
-] = "TRUST_SYSTEM_CA_SIGNED_CERTIFICATES"  # Default
+TRUST_SYSTEM_CA_SIGNED_CERTIFICATES: te.Final[str] = \
+    "TRUST_SYSTEM_CA_SIGNED_CERTIFICATES"  # Default
 TRUST_ALL_CERTIFICATES: te.Final[str] = "TRUST_ALL_CERTIFICATES"
 
 SYSTEM_DATABASE: te.Final[str] = "system"
@@ -93,7 +91,7 @@ class Auth:
         principal: t.Optional[str],
         credentials: t.Optional[str],
         realm: t.Optional[str] = None,
-        **parameters: t.Any,
+        **parameters: t.Any
     ) -> None:
         self.scheme = scheme
         # Neo4j servers pre 4.4 require the principal field to always be
@@ -123,7 +121,9 @@ AuthToken = Auth
 _TAuth = t.Union[t.Tuple[t.Any, t.Any], Auth, None]
 
 
-def basic_auth(user: str, password: str, realm: t.Optional[str] = None) -> Auth:
+def basic_auth(
+    user: str, password: str, realm: t.Optional[str] = None
+) -> Auth:
     """Generate a basic auth token for a given user and password.
 
     This will set the scheme to "basic" for the auth token.
@@ -171,7 +171,7 @@ def custom_auth(
     credentials: t.Optional[str],
     realm: t.Optional[str],
     scheme: t.Optional[str],
-    **parameters: t.Any,
+    **parameters: t.Any
 ) -> Auth:
     """Generate a custom auth token.
 
@@ -218,9 +218,7 @@ class Bookmark:
         """
         :returns: repr string with sorted values
         """
-        return "<Bookmark values={{{}}}>".format(
-            ", ".join(["'{}'".format(ix) for ix in sorted(self._values)])
-        )
+        return "<Bookmark values={{{}}}>".format(", ".join(["'{}'".format(ix) for ix in sorted(self._values)]))
 
     def __bool__(self) -> bool:
         return bool(self._values)
@@ -296,9 +294,8 @@ class Bookmarks:
         bookmarks = []
         for value in values:
             if not isinstance(value, str):
-                raise TypeError(
-                    "Raw bookmark values must be str. " "Found {}".format(type(value))
-                )
+                raise TypeError("Raw bookmark values must be str. "
+                                "Found {}".format(type(value)))
             try:
                 value.encode("ascii")
             except UnicodeEncodeError as e:
@@ -309,7 +306,8 @@ class Bookmarks:
 
 
 class ServerInfo:
-    """Represents a package of information relating to a Neo4j server."""
+    """ Represents a package of information relating to a Neo4j server.
+    """
 
     def __init__(self, address: Address, protocol_version: Version):
         self._address = address
@@ -318,12 +316,13 @@ class ServerInfo:
 
     @property
     def address(self) -> Address:
-        """Network address of the remote server."""
+        """ Network address of the remote server.
+        """
         return self._address
 
     @property
     def protocol_version(self) -> Version:
-        """Bolt protocol version with which the remote server
+        """ Bolt protocol version with which the remote server
         communicates. This is returned as a :class:`.Version`
         object, which itself extends a simple 2-tuple of
         (major, minor) integers.
@@ -332,22 +331,21 @@ class ServerInfo:
 
     @property
     def agent(self) -> str:
-        """Server agent string by which the remote server identifies
+        """ Server agent string by which the remote server identifies
         itself.
         """
         return str(self._metadata.get("server"))
 
     @property  # type: ignore
-    @deprecated(
-        "The connection id is considered internal information "
-        "and will no longer be exposed in future versions."
-    )
+    @deprecated("The connection id is considered internal information "
+                "and will no longer be exposed in future versions.")
     def connection_id(self):
-        """Unique identifier for the remote server connection."""
+        """ Unique identifier for the remote server connection.
+        """
         return self._metadata.get("connection_id")
 
     def update(self, metadata: dict) -> None:
-        """Update server information with extra metadata. This is
+        """ Update server information with extra metadata. This is
         typically drawn from the metadata received after successful
         connection initialisation.
         """
@@ -355,6 +353,7 @@ class ServerInfo:
 
 
 class Version(tuple):
+
     def __new__(cls, *v):
         return super().__new__(cls, v)
 
@@ -428,7 +427,8 @@ class BookmarkManager(_Protocol, metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def update_bookmarks(
-        self, previous_bookmarks: t.Collection[str], new_bookmarks: t.Collection[str]
+        self, previous_bookmarks: t.Collection[str],
+        new_bookmarks: t.Collection[str]
     ) -> None:
         """Handle bookmark updates.
 
@@ -464,7 +464,8 @@ class AsyncBookmarkManager(_Protocol, metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     async def update_bookmarks(
-        self, previous_bookmarks: t.Collection[str], new_bookmarks: t.Collection[str]
+        self, previous_bookmarks: t.Collection[str],
+        new_bookmarks: t.Collection[str]
     ) -> None:
         ...
 
@@ -487,11 +488,7 @@ def parse_neo4j_uri(uri):
         raise ConfigurationError("Password is not supported in the URI")
 
     if parsed.scheme == URI_SCHEME_BOLT_ROUTING:
-        raise ConfigurationError(
-            "Uri scheme {!r} have been renamed. Use {!r}".format(
-                parsed.scheme, URI_SCHEME_NEO4J
-            )
-        )
+        raise ConfigurationError("Uri scheme {!r} have been renamed. Use {!r}".format(parsed.scheme, URI_SCHEME_NEO4J))
     elif parsed.scheme == URI_SCHEME_BOLT:
         driver_type = DRIVER_BOLT
         security_type = SECURITY_TYPE_NOT_SECURE
@@ -511,19 +508,17 @@ def parse_neo4j_uri(uri):
         driver_type = DRIVER_NEO4J
         security_type = SECURITY_TYPE_SECURE
     else:
-        raise ConfigurationError(
-            "URI scheme {!r} is not supported. Supported URI schemes are {}. Examples: bolt://host[:port] or neo4j://host[:port][?routing_context]".format(
-                parsed.scheme,
-                [
-                    URI_SCHEME_BOLT,
-                    URI_SCHEME_BOLT_SELF_SIGNED_CERTIFICATE,
-                    URI_SCHEME_BOLT_SECURE,
-                    URI_SCHEME_NEO4J,
-                    URI_SCHEME_NEO4J_SELF_SIGNED_CERTIFICATE,
-                    URI_SCHEME_NEO4J_SECURE,
-                ],
-            )
-        )
+        raise ConfigurationError("URI scheme {!r} is not supported. Supported URI schemes are {}. Examples: bolt://host[:port] or neo4j://host[:port][?routing_context]".format(
+            parsed.scheme,
+            [
+                URI_SCHEME_BOLT,
+                URI_SCHEME_BOLT_SELF_SIGNED_CERTIFICATE,
+                URI_SCHEME_BOLT_SECURE,
+                URI_SCHEME_NEO4J,
+                URI_SCHEME_NEO4J_SELF_SIGNED_CERTIFICATE,
+                URI_SCHEME_NEO4J_SECURE
+            ]
+        ))
 
     return driver_type, security_type, parsed
 
@@ -539,7 +534,8 @@ def check_access_mode(access_mode):
 
 
 def parse_routing_context(query):
-    """Parse the query portion of a URI to generate a routing context dictionary."""
+    """ Parse the query portion of a URI to generate a routing context dictionary.
+    """
     if not query:
         return {}
 
@@ -548,15 +544,10 @@ def parse_routing_context(query):
     for key in parameters:
         value_list = parameters[key]
         if len(value_list) != 1:
-            raise ConfigurationError(
-                "Duplicated query parameters with key '%s', value '%s' found in query string '%s'"
-                % (key, value_list, query)
-            )
+            raise ConfigurationError("Duplicated query parameters with key '%s', value '%s' found in query string '%s'" % (key, value_list, query))
         value = value_list[0]
         if not value:
-            raise ConfigurationError(
-                "Invalid parameters:'%s=%s' in query string '%s'." % (key, value, query)
-            )
+            raise ConfigurationError("Invalid parameters:'%s=%s' in query string '%s'." % (key, value, query))
         context[key] = value
 
     return context

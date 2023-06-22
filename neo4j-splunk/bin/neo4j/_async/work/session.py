@@ -91,7 +91,8 @@ class AsyncSession(AsyncWorkspace):
     _connection: t.Optional[AsyncBolt] = None
 
     # The current transaction instance, if any.
-    _transaction: t.Union[AsyncTransaction, AsyncManagedTransaction, None] = None
+    _transaction: t.Union[AsyncTransaction, AsyncManagedTransaction, None] = \
+        None
 
     # The current auto-commit transaction result, if any.
     _auto_result = None
@@ -104,9 +105,12 @@ class AsyncSession(AsyncWorkspace):
         if session_config.auth is not None:
             with warnings.catch_warnings():
                 warnings.filterwarnings(
-                    "ignore", message=r".*\bAuth managers\b.*", category=PreviewWarning
+                    "ignore", message=r".*\bAuth managers\b.*",
+                    category=PreviewWarning
                 )
-                session_config.auth = AsyncAuthManagers.static(session_config.auth)
+                session_config.auth = AsyncAuthManagers.static(
+                    session_config.auth
+                )
         super().__init__(pool, session_config)
         self._config = session_config
         self._initialize_bookmarks(session_config.bookmarks)
@@ -148,14 +152,12 @@ class AsyncSession(AsyncWorkspace):
         connection = self._connection
         self._connection = None
         if connection:
-            log.debug(
-                "[#%04X]  _: <SESSION> %s cancellation clean-up",
-                connection.local_port,
-                message,
-            )
+            log.debug("[#%04X]  _: <SESSION> %s cancellation clean-up",
+                      connection.local_port, message)
             self._pool.kill_and_release(connection)
         else:
-            log.debug("[#0000]  _: <SESSION> %s cancellation clean-up", message)
+            log.debug("[#0000]  _: <SESSION> %s cancellation clean-up",
+                      message)
 
     async def _result_closed(self):
         if self._auto_result:
@@ -195,7 +197,9 @@ class AsyncSession(AsyncWorkspace):
                 if self._state_failed is False:
                     try:
                         await self._auto_result.consume()
-                        await self._update_bookmark(self._auto_result._bookmark)
+                        await self._update_bookmark(
+                            self._auto_result._bookmark
+                        )
                     except Exception as error:
                         # TODO: Investigate potential non graceful close states
                         self._auto_result = None
@@ -227,7 +231,6 @@ class AsyncSession(AsyncWorkspace):
         self._closed = True
 
     if AsyncUtil.is_async_code:
-
         def cancel(self) -> None:
             """Cancel this session.
 
@@ -254,7 +257,7 @@ class AsyncSession(AsyncWorkspace):
         self,
         query: t.Union[te.LiteralString, Query],
         parameters: t.Optional[t.Dict[str, t.Any]] = None,
-        **kwargs: t.Any,
+        **kwargs: t.Any
     ) -> AsyncResult:
         """Run a Cypher query within an auto-commit transaction.
 
@@ -300,18 +303,15 @@ class AsyncSession(AsyncWorkspace):
         cx = self._connection
 
         self._auto_result = AsyncResult(
-            cx, self._config.fetch_size, self._result_closed, self._result_error
+            cx, self._config.fetch_size, self._result_closed,
+            self._result_error
         )
         bookmarks = await self._get_bookmarks()
         parameters = dict(parameters or {}, **kwargs)
         await self._auto_result._run(
-            query,
-            parameters,
-            self._config.database,
-            self._config.impersonated_user,
-            self._config.default_access_mode,
-            bookmarks,
-            self._config.notifications_min_severity,
+            query, parameters, self._config.database,
+            self._config.impersonated_user, self._config.default_access_mode,
+            bookmarks, self._config.notifications_min_severity,
             self._config.notifications_disabled_categories,
         )
 
@@ -401,27 +401,24 @@ class AsyncSession(AsyncWorkspace):
             await self._disconnect()
 
     def _transaction_cancel_handler(self):
-        return self._handle_cancellation(message="_transaction_cancel_handler")
+        return self._handle_cancellation(
+            message="_transaction_cancel_handler"
+        )
 
     async def _open_transaction(
         self, *, tx_cls, access_mode, metadata=None, timeout=None
     ):
         await self._connect(access_mode=access_mode)
         self._transaction = tx_cls(
-            self._connection,
-            self._config.fetch_size,
+            self._connection, self._config.fetch_size,
             self._transaction_closed_handler,
             self._transaction_error_handler,
-            self._transaction_cancel_handler,
+            self._transaction_cancel_handler
         )
         bookmarks = await self._get_bookmarks()
         await self._transaction._begin(
-            self._config.database,
-            self._config.impersonated_user,
-            bookmarks,
-            access_mode,
-            metadata,
-            timeout,
+            self._config.database, self._config.impersonated_user,
+            bookmarks, access_mode, metadata, timeout,
             self._config.notifications_min_severity,
             self._config.notifications_disabled_categories,
         )
@@ -429,7 +426,7 @@ class AsyncSession(AsyncWorkspace):
     async def begin_transaction(
         self,
         metadata: t.Optional[t.Dict[str, t.Any]] = None,
-        timeout: t.Optional[float] = None,
+        timeout: t.Optional[float] = None
     ) -> AsyncTransaction:
         """Begin a new unmanaged transaction.
 
@@ -477,9 +474,8 @@ class AsyncSession(AsyncWorkspace):
 
         await self._open_transaction(
             tx_cls=AsyncTransaction,
-            access_mode=self._config.default_access_mode,
-            metadata=metadata,
-            timeout=timeout,
+            access_mode=self._config.default_access_mode, metadata=metadata,
+            timeout=timeout
         )
 
         return t.cast(AsyncTransaction, self._transaction)
@@ -497,7 +493,7 @@ class AsyncSession(AsyncWorkspace):
         retry_delay = retry_delay_generator(
             self._config.initial_retry_delay,
             self._config.retry_delay_multiplier,
-            self._config.retry_delay_jitter_factor,
+            self._config.retry_delay_jitter_factor
         )
 
         errors = []
@@ -508,9 +504,8 @@ class AsyncSession(AsyncWorkspace):
             try:
                 await self._open_transaction(
                     tx_cls=AsyncManagedTransaction,
-                    access_mode=access_mode,
-                    metadata=metadata,
-                    timeout=timeout,
+                    access_mode=access_mode, metadata=metadata,
+                    timeout=timeout
                 )
                 tx = self._transaction
                 try:
@@ -518,7 +513,9 @@ class AsyncSession(AsyncWorkspace):
                 except asyncio.CancelledError:
                     # if cancellation callback has not been called yet:
                     if self._transaction is not None:
-                        self._handle_cancellation(message="transaction function")
+                        self._handle_cancellation(
+                            message="transaction function"
+                        )
                     raise
                 except Exception:
                     await tx._close()
@@ -539,10 +536,8 @@ class AsyncSession(AsyncWorkspace):
             if t1 - t0 > self._config.max_transaction_retry_time:
                 break
             delay = next(retry_delay)
-            log.warning(
-                "Transaction failed and will be retried in {}s ({})"
-                "".format(delay, "; ".join(errors[-1].args))
-            )
+            log.warning("Transaction failed and will be retried in {}s ({})"
+                        "".format(delay, "; ".join(errors[-1].args)))
             try:
                 await async_sleep(delay)
             except asyncio.CancelledError:
@@ -559,8 +554,7 @@ class AsyncSession(AsyncWorkspace):
         transaction_function: t.Callable[
             te.Concatenate[AsyncManagedTransaction, _P], t.Awaitable[_R]
         ],
-        *args: _P.args,
-        **kwargs: _P.kwargs,
+        *args: _P.args, **kwargs: _P.kwargs
     ) -> _R:
         """Execute a unit of work in a managed read transaction.
 
@@ -629,8 +623,7 @@ class AsyncSession(AsyncWorkspace):
         transaction_function: t.Callable[
             te.Concatenate[AsyncManagedTransaction, _P], t.Awaitable[_R]
         ],
-        *args: _P.args,
-        **kwargs: _P.kwargs,
+        *args: _P.args, **kwargs: _P.kwargs
     ) -> _R:
         """Execute a unit of work in a managed read transaction.
 
@@ -661,8 +654,7 @@ class AsyncSession(AsyncWorkspace):
         transaction_function: t.Callable[
             te.Concatenate[AsyncManagedTransaction, _P], t.Awaitable[_R]
         ],
-        *args: _P.args,
-        **kwargs: _P.kwargs,
+        *args: _P.args,  **kwargs: _P.kwargs
     ) -> _R:
         """Execute a unit of work in a managed write transaction.
 
@@ -713,8 +705,7 @@ class AsyncSession(AsyncWorkspace):
         transaction_function: t.Callable[
             te.Concatenate[AsyncManagedTransaction, _P], t.Awaitable[_R]
         ],
-        *args: _P.args,
-        **kwargs: _P.kwargs,
+        *args: _P.args,  **kwargs: _P.kwargs
     ) -> _R:
         """Execute a unit of work in a managed write transaction.
 

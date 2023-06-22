@@ -34,7 +34,7 @@ from ..._exceptions import (
     BoltError,
     BoltHandshakeError,
 )
-from ..._meta import get_user_agent
+from ..._meta import USER_AGENT
 from ...addressing import ResolvedAddress
 from ...api import (
     ServerInfo,
@@ -74,7 +74,7 @@ class ServerStateManagerBase(abc.ABC):
 
 
 class AsyncBolt:
-    """Server connection for Bolt protocol.
+    """ Server connection for Bolt protocol.
 
     A :class:`.Bolt` should be constructed following a
     successful .open()
@@ -118,25 +118,17 @@ class AsyncBolt:
     # results for it.
     most_recent_qid = None
 
-    def __init__(
-        self,
-        unresolved_address,
-        sock,
-        max_connection_lifetime,
-        *,
-        auth=None,
-        auth_manager=None,
-        user_agent=None,
-        routing_context=None,
-        notifications_min_severity=None,
-        notifications_disabled_categories=None,
-    ):
+    def __init__(self, unresolved_address, sock, max_connection_lifetime, *,
+                 auth=None, auth_manager=None, user_agent=None,
+                 routing_context=None, notifications_min_severity=None,
+                 notifications_disabled_categories=None):
         self.unresolved_address = unresolved_address
         self.socket = sock
         self.local_port = self.socket.getsockname()[1]
         self.server_info = ServerInfo(
-            ResolvedAddress(sock.getpeername(), host_name=unresolved_address.host),
-            self.PROTOCOL_VERSION,
+            ResolvedAddress(sock.getpeername(),
+                            host_name=unresolved_address.host),
+            self.PROTOCOL_VERSION
         )
         # so far `connection.recv_timeout_seconds` is the only available
         # configuration hint that exists. Therefore, all hints can be stored at
@@ -144,10 +136,12 @@ class AsyncBolt:
         self.configuration_hints = {}
         self.patch = {}
         self.outbox = AsyncOutbox(
-            self.socket, on_error=self._set_defunct_write, packer_cls=self.PACKER_CLS
+            self.socket, on_error=self._set_defunct_write,
+            packer_cls=self.PACKER_CLS
         )
         self.inbox = AsyncInbox(
-            self.socket, on_error=self._set_defunct_read, unpacker_cls=self.UNPACKER_CLS
+            self.socket, on_error=self._set_defunct_read,
+            unpacker_cls=self.UNPACKER_CLS
         )
         self.hydration_handler = self.HYDRATION_HANDLER_CLS()
         self.responses = deque()
@@ -160,14 +154,15 @@ class AsyncBolt:
         if user_agent:
             self.user_agent = user_agent
         else:
-            self.user_agent = get_user_agent()
+            self.user_agent = USER_AGENT
 
         self.auth = auth
         self.auth_dict = self._to_auth_dict(auth)
         self.auth_manager = auth_manager
 
         self.notifications_min_severity = notifications_min_severity
-        self.notifications_disabled_categories = notifications_disabled_categories
+        self.notifications_disabled_categories = \
+            notifications_disabled_categories
 
     def __del__(self):
         if not asyncio.iscoroutinefunction(self.close):
@@ -184,7 +179,6 @@ class AsyncBolt:
             return {}
         elif isinstance(auth, tuple) and 2 <= len(auth) <= 3:
             from ...api import Auth
-
             return vars(Auth("basic", *auth))
         else:
             try:
@@ -199,7 +193,7 @@ class AsyncBolt:
     @property
     @abc.abstractmethod
     def supports_multiple_results(self):
-        """Boolean flag to indicate if the connection version supports multiple
+        """ Boolean flag to indicate if the connection version supports multiple
         queries to be buffered on the server side (True) or if all results need
         to be eagerly pulled before sending the next RUN (False).
         """
@@ -208,7 +202,7 @@ class AsyncBolt:
     @property
     @abc.abstractmethod
     def supports_multiple_databases(self):
-        """Boolean flag to indicate if the connection version supports multiple
+        """ Boolean flag to indicate if the connection version supports multiple
         databases.
         """
         pass
@@ -244,7 +238,7 @@ class AsyncBolt:
     # [bolt-version-bump] search tag when changing bolt version support
     @classmethod
     def protocol_handlers(cls, protocol_version=None):
-        """Return a dictionary of available Bolt protocol handlers,
+        """ Return a dictionary of available Bolt protocol handlers,
         keyed by version tuple. If an explicit protocol version is
         provided, the dictionary will contain either zero or one items,
         depending on whether that version is supported. If no protocol
@@ -269,6 +263,7 @@ class AsyncBolt:
             AsyncBolt5x0,
             AsyncBolt5x1,
             AsyncBolt5x2,
+            AsyncBolt5x3,
         )
 
         handlers = {
@@ -281,6 +276,7 @@ class AsyncBolt:
             AsyncBolt5x0.PROTOCOL_VERSION: AsyncBolt5x0,
             AsyncBolt5x1.PROTOCOL_VERSION: AsyncBolt5x1,
             AsyncBolt5x2.PROTOCOL_VERSION: AsyncBolt5x2,
+            AsyncBolt5x3.PROTOCOL_VERSION: AsyncBolt5x3,
         }
 
         if protocol_version is None:
@@ -296,7 +292,7 @@ class AsyncBolt:
 
     @classmethod
     def version_list(cls, versions, limit=4):
-        """Return a list of supported protocol versions in order of
+        """ Return a list of supported protocol versions in order of
         preference. The number of protocol versions (or ranges)
         returned is limited to four.
         """
@@ -307,12 +303,10 @@ class AsyncBolt:
         first_with_range_support = Version(4, 2)
         result = []
         for version in versions:
-            if (
-                result
-                and version >= first_with_range_support
-                and result[-1][0] == version[0]
-                and result[-1][1][1] == version[1] + 1
-            ):
+            if (result
+                    and version >= first_with_range_support
+                    and result[-1][0] == version[0]
+                    and result[-1][1][1] == version[1] + 1):
                 # can use range to encompass this version
                 result[-1][1][1] = version[1]
                 continue
@@ -323,19 +317,17 @@ class AsyncBolt:
 
     @classmethod
     def get_handshake(cls):
-        """Return the supported Bolt versions as bytes.
+        """ Return the supported Bolt versions as bytes.
         The length is 16 bytes as specified in the Bolt version negotiation.
         :returns: bytes
         """
         supported_versions = sorted(cls.protocol_handlers().keys(), reverse=True)
         offered_versions = cls.version_list(supported_versions)
-        return b"".join(version.to_bytes() for version in offered_versions).ljust(
-            16, b"\x00"
-        )
+        return b"".join(version.to_bytes() for version in offered_versions).ljust(16, b"\x00")
 
     @classmethod
     async def ping(cls, address, *, deadline=None, pool_config=None):
-        """Attempt to establish a Bolt connection, returning the
+        """ Attempt to establish a Bolt connection, returning the
         agreed Bolt protocol version if successful.
         """
         if pool_config is None:
@@ -344,14 +336,15 @@ class AsyncBolt:
             deadline = Deadline(None)
 
         try:
-            s, protocol_version, handshake, data = await AsyncBoltSocket.connect(
-                address,
-                tcp_timeout=pool_config.connection_timeout,
-                deadline=deadline,
-                custom_resolver=pool_config.resolver,
-                ssl_context=pool_config.get_ssl_context(),
-                keep_alive=pool_config.keep_alive,
-            )
+            s, protocol_version, handshake, data = \
+                await AsyncBoltSocket.connect(
+                    address,
+                    tcp_timeout=pool_config.connection_timeout,
+                    deadline=deadline,
+                    custom_resolver=pool_config.resolver,
+                    ssl_context=pool_config.get_ssl_context(),
+                    keep_alive=pool_config.keep_alive,
+                )
         except (ServiceUnavailable, SessionExpired, BoltHandshakeError):
             return None
         else:
@@ -361,13 +354,8 @@ class AsyncBolt:
     # [bolt-version-bump] search tag when changing bolt version support
     @classmethod
     async def open(
-        cls,
-        address,
-        *,
-        auth_manager=None,
-        deadline=None,
-        routing_context=None,
-        pool_config=None,
+        cls, address, *, auth_manager=None, deadline=None,
+        routing_context=None, pool_config=None
     ):
         """Open a new Bolt connection to a given server address.
 
@@ -389,46 +377,43 @@ class AsyncBolt:
         if deadline is None:
             deadline = Deadline(None)
 
-        s, protocol_version, handshake, data = await AsyncBoltSocket.connect(
-            address,
-            tcp_timeout=pool_config.connection_timeout,
-            deadline=deadline,
-            custom_resolver=pool_config.resolver,
-            ssl_context=pool_config.get_ssl_context(),
-            keep_alive=pool_config.keep_alive,
-        )
+        s, protocol_version, handshake, data = \
+            await AsyncBoltSocket.connect(
+                address,
+                tcp_timeout=pool_config.connection_timeout,
+                deadline=deadline,
+                custom_resolver=pool_config.resolver,
+                ssl_context=pool_config.get_ssl_context(),
+                keep_alive=pool_config.keep_alive,
+            )
 
         pool_config.protocol_version = protocol_version
 
         # Carry out Bolt subclass imports locally to avoid circular dependency
         # issues.
-        if protocol_version == (5, 2):
+        if protocol_version == (5, 3):
+            from ._bolt5 import AsyncBolt5x3
+            bolt_cls = AsyncBolt5x3
+        elif protocol_version == (5, 2):
             from ._bolt5 import AsyncBolt5x2
-
             bolt_cls = AsyncBolt5x2
         elif protocol_version == (5, 1):
             from ._bolt5 import AsyncBolt5x1
-
             bolt_cls = AsyncBolt5x1
         elif protocol_version == (5, 0):
             from ._bolt5 import AsyncBolt5x0
-
             bolt_cls = AsyncBolt5x0
         elif protocol_version == (4, 4):
             from ._bolt4 import AsyncBolt4x4
-
             bolt_cls = AsyncBolt4x4
         elif protocol_version == (4, 3):
             from ._bolt4 import AsyncBolt4x3
-
             bolt_cls = AsyncBolt4x3
         elif protocol_version == (4, 2):
             from ._bolt4 import AsyncBolt4x2
-
             bolt_cls = AsyncBolt4x2
         elif protocol_version == (4, 1):
             from ._bolt4 import AsyncBolt4x1
-
             bolt_cls = AsyncBolt4x1
         # Implementation for 4.0 exists, but there was no space left in the
         # handshake to offer this version to the server. Hence, the server
@@ -438,7 +423,6 @@ class AsyncBolt:
         #     bolt_cls = AsyncBolt4x0
         elif protocol_version == (3, 0):
             from ._bolt3 import AsyncBolt3
-
             bolt_cls = AsyncBolt3
         else:
             log.debug("[#%04X]  C: <CLOSE>", s.getsockname()[1])
@@ -449,38 +433,29 @@ class AsyncBolt:
                 "The neo4j server does not support communication with this "
                 "driver. This driver has support for Bolt protocols "
                 "{}.".format(tuple(map(str, supported_versions))),
-                address=address,
-                request_data=handshake,
-                response_data=data,
+                address=address, request_data=handshake, response_data=data
             )
 
         try:
             auth = await AsyncUtil.callback(auth_manager.get_auth)
         except asyncio.CancelledError as e:
-            log.debug(
-                "[#%04X]  C: <KILL> open auth manager failed: %r", s.getsockname()[1], e
-            )
+            log.debug("[#%04X]  C: <KILL> open auth manager failed: %r",
+                      s.getsockname()[1], e)
             s.kill()
             raise
         except Exception as e:
-            log.debug(
-                "[#%04X]  C: <CLOSE> open auth manager failed: %r",
-                s.getsockname()[1],
-                e,
-            )
+            log.debug("[#%04X]  C: <CLOSE> open auth manager failed: %r",
+                      s.getsockname()[1], e)
             await s.close()
             raise
 
         connection = bolt_cls(
-            address,
-            s,
-            pool_config.max_connection_lifetime,
-            auth=auth,
-            auth_manager=auth_manager,
-            user_agent=pool_config.user_agent,
+            address, s, pool_config.max_connection_lifetime, auth=auth,
+            auth_manager=auth_manager, user_agent=pool_config.user_agent,
             routing_context=routing_context,
             notifications_min_severity=pool_config.notifications_min_severity,
-            notifications_disabled_categories=pool_config.notifications_disabled_categories,
+            notifications_disabled_categories=
+                pool_config.notifications_disabled_categories
         )
 
         try:
@@ -512,7 +487,7 @@ class AsyncBolt:
 
     @abc.abstractmethod
     async def hello(self, dehydration_hooks=None, hydration_hooks=None):
-        """Appends a HELLO message to the outgoing queue, sends it and consumes
+        """ Appends a HELLO message to the outgoing queue, sends it and consumes
          all remaining messages.
 
         :param dehydration_hooks:
@@ -541,12 +516,8 @@ class AsyncBolt:
         self.auth_dict = {}
 
     def re_auth(
-        self,
-        auth,
-        auth_manager,
-        force=False,
-        dehydration_hooks=None,
-        hydration_hooks=None,
+        self, auth, auth_manager, force=False,
+        dehydration_hooks=None, hydration_hooks=None,
     ):
         """Append LOGON, LOGOFF to the outgoing queue.
 
@@ -559,25 +530,22 @@ class AsyncBolt:
             self.auth_manager = auth_manager
             self.auth = auth
             return False
-        self.logoff(
-            dehydration_hooks=dehydration_hooks, hydration_hooks=hydration_hooks
-        )
+        self.logoff(dehydration_hooks=dehydration_hooks,
+                     hydration_hooks=hydration_hooks)
         self.auth_dict = new_auth_dict
         self.auth_manager = auth_manager
         self.auth = auth
-        self.logon(dehydration_hooks=dehydration_hooks, hydration_hooks=hydration_hooks)
+        self.logon(dehydration_hooks=dehydration_hooks,
+                    hydration_hooks=hydration_hooks)
         return True
+
 
     @abc.abstractmethod
     async def route(
-        self,
-        database=None,
-        imp_user=None,
-        bookmarks=None,
-        dehydration_hooks=None,
-        hydration_hooks=None,
+        self, database=None, imp_user=None, bookmarks=None,
+        dehydration_hooks=None, hydration_hooks=None
     ):
-        """Fetch a routing table from the server for the given
+        """ Fetch a routing table from the server for the given
         `database`. For Bolt 4.3 and above, this appends a ROUTE
         message; for earlier versions, a procedure call is made via
         the regular Cypher execution mechanism. In all cases, this is
@@ -601,23 +569,12 @@ class AsyncBolt:
         pass
 
     @abc.abstractmethod
-    def run(
-        self,
-        query,
-        parameters=None,
-        mode=None,
-        bookmarks=None,
-        metadata=None,
-        timeout=None,
-        db=None,
-        imp_user=None,
-        notifications_min_severity=None,
-        notifications_disabled_categories=None,
-        dehydration_hooks=None,
-        hydration_hooks=None,
-        **handlers,
-    ):
-        """Appends a RUN message to the output queue.
+    def run(self, query, parameters=None, mode=None, bookmarks=None,
+            metadata=None, timeout=None, db=None, imp_user=None,
+            notifications_min_severity=None,
+            notifications_disabled_categories=None, dehydration_hooks=None,
+            hydration_hooks=None, **handlers):
+        """ Appends a RUN message to the output queue.
 
         :param query: Cypher query string
         :param parameters: dictionary of Cypher parameters
@@ -648,10 +605,9 @@ class AsyncBolt:
         pass
 
     @abc.abstractmethod
-    def discard(
-        self, n=-1, qid=-1, dehydration_hooks=None, hydration_hooks=None, **handlers
-    ):
-        """Appends a DISCARD message to the output queue.
+    def discard(self, n=-1, qid=-1, dehydration_hooks=None,
+                hydration_hooks=None, **handlers):
+        """ Appends a DISCARD message to the output queue.
 
         :param n: number of records to discard, default = -1 (ALL)
         :param qid: query ID to discard for, default = -1 (last query)
@@ -668,10 +624,9 @@ class AsyncBolt:
         pass
 
     @abc.abstractmethod
-    def pull(
-        self, n=-1, qid=-1, dehydration_hooks=None, hydration_hooks=None, **handlers
-    ):
-        """Appends a PULL message to the output queue.
+    def pull(self, n=-1, qid=-1, dehydration_hooks=None, hydration_hooks=None,
+             **handlers):
+        """ Appends a PULL message to the output queue.
 
         :param n: number of records to pull, default = -1 (ALL)
         :param qid: query ID to pull for, default = -1 (last query)
@@ -688,21 +643,11 @@ class AsyncBolt:
         pass
 
     @abc.abstractmethod
-    def begin(
-        self,
-        mode=None,
-        bookmarks=None,
-        metadata=None,
-        timeout=None,
-        db=None,
-        imp_user=None,
-        notifications_min_severity=None,
-        notifications_disabled_categories=None,
-        dehydration_hooks=None,
-        hydration_hooks=None,
-        **handlers,
-    ):
-        """Appends a BEGIN message to the output queue.
+    def begin(self, mode=None, bookmarks=None, metadata=None, timeout=None,
+              db=None, imp_user=None, notifications_min_severity=None,
+              notifications_disabled_categories=None, dehydration_hooks=None,
+              hydration_hooks=None, **handlers):
+        """ Appends a BEGIN message to the output queue.
 
         :param mode: access mode for routing - "READ" or "WRITE" (default)
         :param bookmarks: iterable of bookmark values after which this transaction should begin
@@ -733,7 +678,7 @@ class AsyncBolt:
 
     @abc.abstractmethod
     def commit(self, dehydration_hooks=None, hydration_hooks=None, **handlers):
-        """Appends a COMMIT message to the output queue.
+        """ Appends a COMMIT message to the output queue.
 
         :param dehydration_hooks:
             Hooks to dehydrate types (dict from type (class) to dehydration
@@ -748,7 +693,7 @@ class AsyncBolt:
 
     @abc.abstractmethod
     def rollback(self, dehydration_hooks=None, hydration_hooks=None, **handlers):
-        """Appends a ROLLBACK message to the output queue.
+        """ Appends a ROLLBACK message to the output queue.
 
         :param dehydration_hooks:
             Hooks to dehydrate types (dict from type (class) to dehydration
@@ -762,7 +707,7 @@ class AsyncBolt:
 
     @abc.abstractmethod
     async def reset(self, dehydration_hooks=None, hydration_hooks=None):
-        """Appends a RESET message to the outgoing queue, sends it and consumes
+        """ Appends a RESET message to the outgoing queue, sends it and consumes
          all remaining messages.
 
         :param dehydration_hooks:
@@ -794,8 +739,9 @@ class AsyncBolt:
     def new_hydration_scope(self):
         return self.hydration_handler.new_hydration_scope()
 
-    def _append(self, signature, fields=(), response=None, dehydration_hooks=None):
-        """Appends a message to the outgoing queue.
+    def _append(self, signature, fields=(), response=None,
+                dehydration_hooks=None):
+        """ Appends a message to the outgoing queue.
 
         :param signature: the signature of the message
         :param fields: the fields of the message as a tuple
@@ -813,7 +759,8 @@ class AsyncBolt:
             self.idle_since = perf_counter()
 
     async def send_all(self):
-        """Send all queued messages to the server."""
+        """ Send all queued messages to the server.
+        """
         if self.closed():
             raise ServiceUnavailable(
                 "Failed to write to closed connection {!r} ({!r})".format(
@@ -831,7 +778,7 @@ class AsyncBolt:
 
     @abc.abstractmethod
     async def _process_message(self, tag, fields):
-        """Receive at most one message from the server, if available.
+        """ Receive at most one message from the server, if available.
 
         :returns: 2-tuple of number of detail messages and number of summary
                  messages fetched
@@ -863,7 +810,7 @@ class AsyncBolt:
         return res
 
     async def fetch_all(self):
-        """Fetch all outstanding messages.
+        """ Fetch all outstanding messages.
 
         :returns: 2-tuple of number of detail messages and number of summary
                  messages fetched
@@ -891,12 +838,12 @@ class AsyncBolt:
 
     async def _set_defunct(self, message, error=None, silent=False):
         from ._pool import AsyncBoltPool
-
         direct_driver = isinstance(self.pool, AsyncBoltPool)
         user_cancelled = isinstance(error, asyncio.CancelledError)
 
         if error:
-            log.debug("[#%04X] _: <CONNECTION> error: %r", self.local_port, error)
+            log.debug("[#%04X]  _: <CONNECTION> error: %r", self.local_port,
+                      error)
         if not user_cancelled:
             log.error(message)
         # We were attempting to receive data but the connection
@@ -939,11 +886,9 @@ class AsyncBolt:
                 raise SessionExpired(message)
 
     def stale(self):
-        return self._stale or (
-            0
-            <= self._max_connection_lifetime
-            <= perf_counter() - self._creation_timestamp
-        )
+        return (self._stale
+                or (0 <= self._max_connection_lifetime
+                    <= perf_counter() - self._creation_timestamp))
 
     _stale = False
 
@@ -960,11 +905,8 @@ class AsyncBolt:
             try:
                 await self._send_all()
             except (OSError, BoltError, DriverError) as exc:
-                log.debug(
-                    "[#%04X]  _: <CONNECTION> ignoring failed close %r",
-                    self.local_port,
-                    exc,
-                )
+                log.debug("[#%04X]  _: <CONNECTION> ignoring failed close %r",
+                          self.local_port, exc)
         log.debug("[#%04X]  C: <CLOSE>", self.local_port)
         try:
             await self.socket.close()
@@ -982,9 +924,8 @@ class AsyncBolt:
         try:
             self.socket.kill()
         except OSError as exc:
-            log.debug(
-                "[#%04X]  _: <CONNECTION> ignoring failed kill %r", self.local_port, exc
-            )
+            log.debug("[#%04X]  _: <CONNECTION> ignoring failed kill %r",
+                      self.local_port, exc)
         finally:
             self._closed = True
 

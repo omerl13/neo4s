@@ -48,7 +48,7 @@ from .._spatial import (
     "a future version"
 )
 def hydrate_point(srid, *coordinates):
-    """Create a new instance of a Point subclass from a raw
+    """ Create a new instance of a Point subclass from a raw
     set of fields. The subclass chosen is determined by the
     given SRID; a ValueError will be raised if no such
     subclass can be found.
@@ -63,7 +63,7 @@ def hydrate_point(srid, *coordinates):
 )
 @wraps(_hydration.dehydrate_point)
 def dehydrate_point(value):
-    """Dehydrator for Point data.
+    """ Dehydrator for Point data.
 
     :param value:
     :type value: Point

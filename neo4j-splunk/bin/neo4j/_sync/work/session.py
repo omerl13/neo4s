@@ -91,7 +91,8 @@ class Session(Workspace):
     _connection: t.Optional[Bolt] = None
 
     # The current transaction instance, if any.
-    _transaction: t.Union[Transaction, ManagedTransaction, None] = None
+    _transaction: t.Union[Transaction, ManagedTransaction, None] = \
+        None
 
     # The current auto-commit transaction result, if any.
     _auto_result = None
@@ -104,9 +105,12 @@ class Session(Workspace):
         if session_config.auth is not None:
             with warnings.catch_warnings():
                 warnings.filterwarnings(
-                    "ignore", message=r".*\bAuth managers\b.*", category=PreviewWarning
+                    "ignore", message=r".*\bAuth managers\b.*",
+                    category=PreviewWarning
                 )
-                session_config.auth = AuthManagers.static(session_config.auth)
+                session_config.auth = AuthManagers.static(
+                    session_config.auth
+                )
         super().__init__(pool, session_config)
         self._config = session_config
         self._initialize_bookmarks(session_config.bookmarks)
@@ -128,7 +132,9 @@ class Session(Workspace):
         if access_mode is None:
             access_mode = self._config.default_access_mode
         try:
-            super()._connect(access_mode, auth=self._config.auth, **acquire_kwargs)
+            super()._connect(
+                access_mode, auth=self._config.auth, **acquire_kwargs
+            )
         except asyncio.CancelledError:
             self._handle_cancellation(message="_connect")
             raise
@@ -146,14 +152,12 @@ class Session(Workspace):
         connection = self._connection
         self._connection = None
         if connection:
-            log.debug(
-                "[#%04X]  _: <SESSION> %s cancellation clean-up",
-                connection.local_port,
-                message,
-            )
+            log.debug("[#%04X]  _: <SESSION> %s cancellation clean-up",
+                      connection.local_port, message)
             self._pool.kill_and_release(connection)
         else:
-            log.debug("[#0000]  _: <SESSION> %s cancellation clean-up", message)
+            log.debug("[#0000]  _: <SESSION> %s cancellation clean-up",
+                      message)
 
     def _result_closed(self):
         if self._auto_result:
@@ -193,7 +197,9 @@ class Session(Workspace):
                 if self._state_failed is False:
                     try:
                         self._auto_result.consume()
-                        self._update_bookmark(self._auto_result._bookmark)
+                        self._update_bookmark(
+                            self._auto_result._bookmark
+                        )
                     except Exception as error:
                         # TODO: Investigate potential non graceful close states
                         self._auto_result = None
@@ -225,7 +231,6 @@ class Session(Workspace):
         self._closed = True
 
     if Util.is_async_code:
-
         def cancel(self) -> None:
             """Cancel this session.
 
@@ -252,7 +257,7 @@ class Session(Workspace):
         self,
         query: t.Union[te.LiteralString, Query],
         parameters: t.Optional[t.Dict[str, t.Any]] = None,
-        **kwargs: t.Any,
+        **kwargs: t.Any
     ) -> Result:
         """Run a Cypher query within an auto-commit transaction.
 
@@ -298,18 +303,15 @@ class Session(Workspace):
         cx = self._connection
 
         self._auto_result = Result(
-            cx, self._config.fetch_size, self._result_closed, self._result_error
+            cx, self._config.fetch_size, self._result_closed,
+            self._result_error
         )
         bookmarks = self._get_bookmarks()
         parameters = dict(parameters or {}, **kwargs)
         self._auto_result._run(
-            query,
-            parameters,
-            self._config.database,
-            self._config.impersonated_user,
-            self._config.default_access_mode,
-            bookmarks,
-            self._config.notifications_min_severity,
+            query, parameters, self._config.database,
+            self._config.impersonated_user, self._config.default_access_mode,
+            bookmarks, self._config.notifications_min_severity,
             self._config.notifications_disabled_categories,
         )
 
@@ -399,25 +401,24 @@ class Session(Workspace):
             self._disconnect()
 
     def _transaction_cancel_handler(self):
-        return self._handle_cancellation(message="_transaction_cancel_handler")
+        return self._handle_cancellation(
+            message="_transaction_cancel_handler"
+        )
 
-    def _open_transaction(self, *, tx_cls, access_mode, metadata=None, timeout=None):
+    def _open_transaction(
+        self, *, tx_cls, access_mode, metadata=None, timeout=None
+    ):
         self._connect(access_mode=access_mode)
         self._transaction = tx_cls(
-            self._connection,
-            self._config.fetch_size,
+            self._connection, self._config.fetch_size,
             self._transaction_closed_handler,
             self._transaction_error_handler,
-            self._transaction_cancel_handler,
+            self._transaction_cancel_handler
         )
         bookmarks = self._get_bookmarks()
         self._transaction._begin(
-            self._config.database,
-            self._config.impersonated_user,
-            bookmarks,
-            access_mode,
-            metadata,
-            timeout,
+            self._config.database, self._config.impersonated_user,
+            bookmarks, access_mode, metadata, timeout,
             self._config.notifications_min_severity,
             self._config.notifications_disabled_categories,
         )
@@ -425,7 +426,7 @@ class Session(Workspace):
     def begin_transaction(
         self,
         metadata: t.Optional[t.Dict[str, t.Any]] = None,
-        timeout: t.Optional[float] = None,
+        timeout: t.Optional[float] = None
     ) -> Transaction:
         """Begin a new unmanaged transaction.
 
@@ -473,14 +474,15 @@ class Session(Workspace):
 
         self._open_transaction(
             tx_cls=Transaction,
-            access_mode=self._config.default_access_mode,
-            metadata=metadata,
-            timeout=timeout,
+            access_mode=self._config.default_access_mode, metadata=metadata,
+            timeout=timeout
         )
 
         return t.cast(Transaction, self._transaction)
 
-    def _run_transaction(self, access_mode, transaction_function, *args, **kwargs):
+    def _run_transaction(
+        self, access_mode, transaction_function, *args, **kwargs
+    ):
         self._check_state()
         if not callable(transaction_function):
             raise TypeError("Unit of work is not callable")
@@ -491,7 +493,7 @@ class Session(Workspace):
         retry_delay = retry_delay_generator(
             self._config.initial_retry_delay,
             self._config.retry_delay_multiplier,
-            self._config.retry_delay_jitter_factor,
+            self._config.retry_delay_jitter_factor
         )
 
         errors = []
@@ -502,9 +504,8 @@ class Session(Workspace):
             try:
                 self._open_transaction(
                     tx_cls=ManagedTransaction,
-                    access_mode=access_mode,
-                    metadata=metadata,
-                    timeout=timeout,
+                    access_mode=access_mode, metadata=metadata,
+                    timeout=timeout
                 )
                 tx = self._transaction
                 try:
@@ -512,7 +513,9 @@ class Session(Workspace):
                 except asyncio.CancelledError:
                     # if cancellation callback has not been called yet:
                     if self._transaction is not None:
-                        self._handle_cancellation(message="transaction function")
+                        self._handle_cancellation(
+                            message="transaction function"
+                        )
                     raise
                 except Exception:
                     tx._close()
@@ -533,10 +536,8 @@ class Session(Workspace):
             if t1 - t0 > self._config.max_transaction_retry_time:
                 break
             delay = next(retry_delay)
-            log.warning(
-                "Transaction failed and will be retried in {}s ({})"
-                "".format(delay, "; ".join(errors[-1].args))
-            )
+            log.warning("Transaction failed and will be retried in {}s ({})"
+                        "".format(delay, "; ".join(errors[-1].args)))
             try:
                 sleep(delay)
             except asyncio.CancelledError:
@@ -553,8 +554,7 @@ class Session(Workspace):
         transaction_function: t.Callable[
             te.Concatenate[ManagedTransaction, _P], t.Union[_R]
         ],
-        *args: _P.args,
-        **kwargs: _P.kwargs,
+        *args: _P.args, **kwargs: _P.kwargs
     ) -> _R:
         """Execute a unit of work in a managed read transaction.
 
@@ -612,7 +612,9 @@ class Session(Workspace):
 
         .. versionadded:: 5.0
         """
-        return self._run_transaction(READ_ACCESS, transaction_function, *args, **kwargs)
+        return self._run_transaction(
+            READ_ACCESS, transaction_function, *args, **kwargs
+        )
 
     # TODO: 6.0 - Remove this method
     @deprecated("read_transaction has been renamed to execute_read")
@@ -621,8 +623,7 @@ class Session(Workspace):
         transaction_function: t.Callable[
             te.Concatenate[ManagedTransaction, _P], t.Union[_R]
         ],
-        *args: _P.args,
-        **kwargs: _P.kwargs,
+        *args: _P.args, **kwargs: _P.kwargs
     ) -> _R:
         """Execute a unit of work in a managed read transaction.
 
@@ -644,15 +645,16 @@ class Session(Workspace):
         .. deprecated:: 5.0
             Method was renamed to :meth:`.execute_read`.
         """
-        return self._run_transaction(READ_ACCESS, transaction_function, *args, **kwargs)
+        return self._run_transaction(
+            READ_ACCESS, transaction_function, *args, **kwargs
+        )
 
     def execute_write(
         self,
         transaction_function: t.Callable[
             te.Concatenate[ManagedTransaction, _P], t.Union[_R]
         ],
-        *args: _P.args,
-        **kwargs: _P.kwargs,
+        *args: _P.args,  **kwargs: _P.kwargs
     ) -> _R:
         """Execute a unit of work in a managed write transaction.
 
@@ -703,8 +705,7 @@ class Session(Workspace):
         transaction_function: t.Callable[
             te.Concatenate[ManagedTransaction, _P], t.Union[_R]
         ],
-        *args: _P.args,
-        **kwargs: _P.kwargs,
+        *args: _P.args,  **kwargs: _P.kwargs
     ) -> _R:
         """Execute a unit of work in a managed write transaction.
 

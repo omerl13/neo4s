@@ -52,12 +52,11 @@ def get_date_unix_epoch_ordinal():
 
 def get_datetime_unix_epoch_utc():
     from pytz import utc
-
     return DateTime(1970, 1, 1, 0, 0, 0, utc)
 
 
 def hydrate_date(days):
-    """Hydrator for `Date` values.
+    """ Hydrator for `Date` values.
 
     :param days:
     :returns: Date
@@ -66,7 +65,7 @@ def hydrate_date(days):
 
 
 def dehydrate_date(value):
-    """Dehydrator for `date` values.
+    """ Dehydrator for `date` values.
 
     :param value:
     :type value: Date
@@ -76,14 +75,13 @@ def dehydrate_date(value):
 
 
 def hydrate_time(nanoseconds, tz=None):
-    """Hydrator for `Time` and `LocalTime` values.
+    """ Hydrator for `Time` and `LocalTime` values.
 
     :param nanoseconds:
     :param tz:
     :returns: Time
     """
     from pytz import FixedOffset
-
     seconds, nanoseconds = map(int, divmod(nanoseconds, 1000000000))
     minutes, seconds = map(int, divmod(seconds, 60))
     hours, minutes = map(int, divmod(minutes, 60))
@@ -96,7 +94,7 @@ def hydrate_time(nanoseconds, tz=None):
 
 
 def dehydrate_time(value):
-    """Dehydrator for `time` values.
+    """ Dehydrator for `time` values.
 
     :param value:
     :type value: Time
@@ -105,24 +103,19 @@ def dehydrate_time(value):
     if isinstance(value, Time):
         nanoseconds = value.ticks
     elif isinstance(value, time):
-        nanoseconds = (
-            3600000000000 * value.hour
-            + 60000000000 * value.minute
-            + 1000000000 * value.second
-            + 1000 * value.microsecond
-        )
+        nanoseconds = (3600000000000 * value.hour + 60000000000 * value.minute +
+                       1000000000 * value.second + 1000 * value.microsecond)
     else:
         raise TypeError("Value must be a neo4j.time.Time or a datetime.time")
     if value.tzinfo:
-        return Structure(
-            b"T", nanoseconds, int(value.tzinfo.utcoffset(value).total_seconds())
-        )
+        return Structure(b"T", nanoseconds,
+                         int(value.tzinfo.utcoffset(value).total_seconds()))
     else:
         return Structure(b"t", nanoseconds)
 
 
 def hydrate_datetime(seconds, nanoseconds, tz=None):
-    """Hydrator for `DateTime` and `LocalDateTime` values.
+    """ Hydrator for `DateTime` and `LocalDateTime` values.
 
     :param seconds:
     :param nanoseconds:
@@ -133,13 +126,12 @@ def hydrate_datetime(seconds, nanoseconds, tz=None):
         FixedOffset,
         timezone,
     )
-
     minutes, seconds = map(int, divmod(seconds, 60))
     hours, minutes = map(int, divmod(minutes, 60))
     days, hours = map(int, divmod(hours, 24))
     t = DateTime.combine(
         Date.from_ordinal(get_date_unix_epoch_ordinal() + days),
-        Time(hours, minutes, seconds, nanoseconds),
+        Time(hours, minutes, seconds, nanoseconds)
     )
     if tz is None:
         return t
@@ -152,7 +144,7 @@ def hydrate_datetime(seconds, nanoseconds, tz=None):
 
 
 def dehydrate_datetime(value):
-    """Dehydrator for `datetime` values.
+    """ Dehydrator for `datetime` values.
 
     :param value:
     :type value: datetime or DateTime
@@ -172,7 +164,6 @@ def dehydrate_datetime(value):
     if tz is None:
         # without time zone
         from pytz import utc
-
         value = utc.localize(value)
         seconds, nanoseconds = seconds_and_nanoseconds(value)
         return Structure(b"d", seconds, nanoseconds)
@@ -192,13 +183,13 @@ def dehydrate_datetime(value):
             offset = tz.utcoffset(value)
         # with time offset
         seconds, nanoseconds = seconds_and_nanoseconds(value)
-        return Structure(b"F", seconds, nanoseconds, int(offset.total_seconds()))
+        return Structure(b"F", seconds, nanoseconds,
+                         int(offset.total_seconds()))
 
 
 if np is not None:
-
     def dehydrate_np_datetime(value):
-        """Dehydrator for `numpy.datetime64` values.
+        """ Dehydrator for `numpy.datetime64` values.
 
         :param value:
         :type value: numpy.datetime64
@@ -210,20 +201,17 @@ if np is not None:
         if not 0 < year <= 9999:
             # while we could encode years outside the range, they would fail
             # when retrieved from the database.
-            raise ValueError(
-                f"Year out of range ({MIN_YEAR:d}..{MAX_YEAR:d}) " f"found {year}"
-            )
+            raise ValueError(f"Year out of range ({MIN_YEAR:d}..{MAX_YEAR:d}) "
+                             f"found {year}")
         seconds = value.astype(np.dtype("datetime64[s]")).astype(int)
-        nanoseconds = (
-            value.astype(np.dtype("datetime64[ns]")).astype(int) % NANO_SECONDS
-        )
+        nanoseconds = (value.astype(np.dtype("datetime64[ns]")).astype(int)
+                       % NANO_SECONDS)
         return Structure(b"d", seconds, nanoseconds)
 
 
 if pd is not None:
-
     def dehydrate_pandas_datetime(value):
-        """Dehydrator for `pandas.Timestamp` values.
+        """ Dehydrator for `pandas.Timestamp` values.
 
         :param value:
         :type value: pandas.Timestamp
@@ -244,7 +232,7 @@ if pd is not None:
 
 
 def hydrate_duration(months, days, seconds, nanoseconds):
-    """Hydrator for `Duration` values.
+    """ Hydrator for `Duration` values.
 
     :param months:
     :param days:
@@ -256,7 +244,7 @@ def hydrate_duration(months, days, seconds, nanoseconds):
 
 
 def dehydrate_duration(value):
-    """Dehydrator for `duration` values.
+    """ Dehydrator for `duration` values.
 
     :param value:
     :type value: Duration
@@ -266,7 +254,7 @@ def dehydrate_duration(value):
 
 
 def dehydrate_timedelta(value):
-    """Dehydrator for `timedelta` values.
+    """ Dehydrator for `timedelta` values.
 
     :param value:
     :type value: timedelta
@@ -294,7 +282,7 @@ if np is not None:
     }
 
     def dehydrate_np_timedelta(value):
-        """Dehydrator for `numpy.timedelta64` values.
+        """ Dehydrator for `numpy.timedelta64` values.
 
         :param value:
         :type value: numpy.timedelta64
@@ -308,18 +296,19 @@ if np is not None:
         kwarg = _NUMPY_DURATION_UNITS.get(unit)
         if kwarg is not None:
             return dehydrate_duration(Duration(**{kwarg: numer * step_size}))
-        return dehydrate_duration(
-            Duration(nanoseconds=value.astype("timedelta64[ns]").astype(int))
-        )
+        return dehydrate_duration(Duration(
+            nanoseconds=value.astype("timedelta64[ns]").astype(int)
+        ))
 
 
 if pd is not None:
-
     def dehydrate_pandas_timedelta(value):
-        """Dehydrator for `pandas.Timedelta` values.
+        """ Dehydrator for `pandas.Timedelta` values.
 
         :param value:
         :type value: pandas.Timedelta
         :returns:
         """
-        return dehydrate_duration(Duration(nanoseconds=value.value))
+        return dehydrate_duration(Duration(
+            nanoseconds=value.value
+        ))

@@ -40,7 +40,7 @@ __all__ = [
 
 
 class SafeClock(Clock):
-    """Clock implementation that should work for any variant of Python.
+    """ Clock implementation that should work for any variant of Python.
     This clock is guaranteed microsecond precision.
     """
 
@@ -54,13 +54,12 @@ class SafeClock(Clock):
 
     def utc_time(self):
         from time import time
-
         seconds, nanoseconds = nano_divmod(int(time() * 1000000), 1000000)
         return ClockTime(seconds, nanoseconds * 1000)
 
 
 class PEP564Clock(Clock):
-    """Clock implementation based on the PEP564 additions to Python 3.7.
+    """ Clock implementation based on the PEP564 additions to Python 3.7.
     This clock is guaranteed nanosecond precision.
     """
 
@@ -79,14 +78,13 @@ class PEP564Clock(Clock):
 
     def utc_time(self):
         from time import time_ns
-
         t = time_ns()
         seconds, nanoseconds = divmod(t, 1000000000)
         return ClockTime(seconds, nanoseconds)
 
 
 class LibCClock(Clock):
-    """Clock implementation that works only on platforms that provide
+    """ Clock implementation that works only on platforms that provide
     libc. This clock is guaranteed nanosecond precision.
     """
 

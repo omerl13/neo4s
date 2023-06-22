@@ -89,8 +89,8 @@ class Result:
         self._fetch_size = fetch_size
 
         # states
-        self._discarding = False  # discard the remainder of records
-        self._attached = False  # attached to a connection
+        self._discarding = False    # discard the remainder of records
+        self._attached = False      # attached to a connection
         # there are still more response messages we wait for
         self._streaming = False
         # there ar more records available to pull from the server
@@ -116,15 +116,8 @@ class Result:
         self._run(query, parameters, None, None, None, None, None, None)
 
     def _run(
-        self,
-        query,
-        parameters,
-        db,
-        imp_user,
-        access_mode,
-        bookmarks,
-        notifications_min_severity,
-        notifications_disabled_categories,
+        self, query, parameters, db, imp_user, access_mode, bookmarks,
+        notifications_min_severity, notifications_disabled_categories
     ):
         query_text = str(query)  # Query or string object
         query_metadata = getattr(query, "metadata", None)
@@ -162,7 +155,8 @@ class Result:
             db=db,
             imp_user=imp_user,
             notifications_min_severity=notifications_min_severity,
-            notifications_disabled_categories=notifications_disabled_categories,
+            notifications_disabled_categories=
+                notifications_disabled_categories,
             dehydration_hooks=self._hydration_scope.dehydration_hooks,
             on_success=on_attached,
             on_failure=on_failed_attach,
@@ -176,13 +170,13 @@ class Result:
             if not self._discarding:
                 records = (
                     record.raw_data
-                    if isinstance(record, BrokenHydrationObject)
-                    else record
+                    if isinstance(record, BrokenHydrationObject) else record
                     for record in records
                 )
-                self._record_buffer.extend(
-                    (Record(zip(self._keys, record)) for record in records)
-                )
+                self._record_buffer.extend((
+                    Record(zip(self._keys, record))
+                    for record in records
+                ))
 
         def on_summary():
             self._attached = False
@@ -323,7 +317,7 @@ class Result:
             elif self._connection:
                 self._summary = ResultSummary(
                     self._connection.unresolved_address,
-                    server=self._connection.server_info,
+                    server=self._connection.server_info
                 )
 
         return self._summary
@@ -410,7 +404,9 @@ class Result:
         return summary
 
     @t.overload
-    def single(self, strict: te.Literal[False] = False) -> t.Optional[Record]:
+    def single(
+        self, strict: te.Literal[False] = False
+    ) -> t.Optional[Record]:
         ...
 
     @t.overload
@@ -460,18 +456,20 @@ class Result:
                 return None
             raise ResultNotSingleError(
                 self,
-                "No records found. " "Make sure your query returns exactly one record.",
+                "No records found. "
+                "Make sure your query returns exactly one record."
             )
         elif len(buffer) > 1:
             res = buffer.popleft()
             if not strict:
-                warn("Expected a result with a single record, " "but found multiple.")
+                warn("Expected a result with a single record, "
+                     "but found multiple.")
                 return res
             else:
                 raise ResultNotSingleError(
                     self,
                     "More than one record found. "
-                    "Make sure your query returns exactly one record.",
+                    "Make sure your query returns exactly one record."
                 )
         return buffer.popleft()
 
@@ -560,7 +558,9 @@ class Result:
         """
         return [record.value(key, default) for record in self]
 
-    def values(self, *keys: _TResultKey) -> t.List[t.List[t.Any]]:
+    def values(
+        self, *keys: _TResultKey
+    ) -> t.List[t.List[t.Any]]:
         """Return the remainder of the result as a list of values lists.
 
         :param keys: fields to return for each remaining record. Optionally filtering to include only certain values by index or key.
@@ -623,11 +623,15 @@ class Result:
 
         self._buffer_all()
         return EagerResult(
-            keys=list(self.keys()), records=Util.list(self), summary=self.consume()
+            keys=list(self.keys()),
+            records=Util.list(self),
+            summary=self.consume()
         )
 
     def to_df(
-        self, expand: bool = False, parse_dates: bool = False
+        self,
+        expand: bool = False,
+        parse_dates: bool = False
     ) -> pandas.DataFrame:
         r"""Convert (the rest of) the result to a pandas DataFrame.
 
@@ -740,24 +744,23 @@ class Result:
                 df = pd.DataFrame(rows)
             else:
                 columns = df_keys or [
-                    k.replace(".", "\\.").replace("\\", "\\\\") for k in self._keys
+                    k.replace(".", "\\.").replace("\\", "\\\\")
+                    for k in self._keys
                 ]
                 df = pd.DataFrame(rows, columns=columns)
         if not parse_dates:
             return df
-        dt_columns = df.columns[
-            df.apply(
-                lambda col: pd.api.types.infer_dtype(col) == "mixed"
-                and col.map(lambda x: isinstance(x, (DateTime, Date, type(None)))).all()
-            )
-        ]
+        dt_columns = df.columns[df.apply(
+            lambda col: pd.api.types.infer_dtype(col) == "mixed" and col.map(
+                lambda x: isinstance(x, (DateTime, Date, type(None)))
+            ).all()
+        )]
         df[dt_columns] = df[dt_columns].apply(
             lambda col: col.map(
-                lambda x: pd.Timestamp(x.iso_format()).replace(
-                    tzinfo=getattr(x, "tzinfo", None)
-                )
-                if x
-                else pd.NaT
+                lambda x:
+                pd.Timestamp(x.iso_format())
+                .replace(tzinfo=getattr(x, "tzinfo", None))
+                if x else pd.NaT
             )
         )
         return df

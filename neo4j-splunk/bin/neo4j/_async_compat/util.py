@@ -64,8 +64,7 @@ class AsyncUtil:
             t.Callable[_P, t.Awaitable[_T]],
             t.Callable[_P, _T],
         ],
-        *args: _P.args,
-        **kwargs: _P.kwargs,
+        *args: _P.args, **kwargs: _P.kwargs
     ) -> _T:
         ...
 
@@ -102,7 +101,8 @@ class Util:
 
     @staticmethod
     @t.overload
-    def callback(cb: t.Callable[_P, _T], *args: _P.args, **kwargs: _P.kwargs) -> _T:
+    def callback(cb: t.Callable[_P, _T],
+                 *args: _P.args, **kwargs: _P.kwargs) -> _T:
         ...
 
     @staticmethod

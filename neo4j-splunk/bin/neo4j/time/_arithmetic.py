@@ -91,7 +91,9 @@ def nano_divmod(x, y):
 _TDividend = TypeVar("_TDividend", int, float)
 
 
-def symmetric_divmod(dividend: _TDividend, divisor: float) -> Tuple[int, _TDividend]:
+def symmetric_divmod(
+    dividend: _TDividend, divisor: float
+) -> Tuple[int, _TDividend]:
     number = type(dividend)
     if dividend >= 0:
         quotient, remainder = divmod(dividend, divisor)

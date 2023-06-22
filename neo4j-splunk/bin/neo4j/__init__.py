@@ -173,13 +173,15 @@ _log = _getLogger("neo4j")
 
 def __getattr__(name):
     # TODO: 6.0 - remove this
-    if name in ("log", "Config", "PoolConfig", "SessionConfig", "WorkspaceConfig"):
+    if name in (
+        "log", "Config", "PoolConfig", "SessionConfig", "WorkspaceConfig"
+    ):
         from ._meta import deprecation_warn
-
         deprecation_warn(
             "Importing {} from neo4j is deprecated without replacement. It's "
-            "internal and will be removed in a future version.".format(name),
-            stack_level=2,
+            "internal and will be removed in a future version."
+            .format(name),
+            stack_level=2
         )
         return globals()[f"_{name}"]
     raise AttributeError(f"module {__name__} has no attribute {name}")

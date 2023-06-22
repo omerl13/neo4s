@@ -24,7 +24,6 @@ def main():
         DateTime,
         UnixEpoch,
     )
-
     clock = Clock()
     time = clock.utc_time()
     print("Using %s" % type(clock).__name__)

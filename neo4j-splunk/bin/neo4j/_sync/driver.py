@@ -99,6 +99,7 @@ if t.TYPE_CHECKING:
     from .._api import T_RoutingControl
     from ..api import _TAuth
 
+
     class _DefaultEnum(Enum):
         default = "default"
 
@@ -111,7 +112,8 @@ _T = t.TypeVar("_T")
 
 
 class GraphDatabase:
-    """Accessor for :class:`neo4j.Driver` construction."""
+    """Accessor for :class:`neo4j.Driver` construction.
+    """
 
     if t.TYPE_CHECKING:
 
@@ -132,7 +134,7 @@ class GraphDatabase:
             connection_timeout: float = ...,
             trust: t.Union[
                 te.Literal["TRUST_ALL_CERTIFICATES"],
-                te.Literal["TRUST_SYSTEM_CA_SIGNED_CERTIFICATES"],
+                te.Literal["TRUST_SYSTEM_CA_SIGNED_CERTIFICATES"]
             ] = ...,
             resolver: t.Union[
                 t.Callable[[Address], t.Iterable[Address]],
@@ -143,10 +145,13 @@ class GraphDatabase:
             ssl_context: ssl.SSLContext = ...,
             user_agent: str = ...,
             keep_alive: bool = ...,
-            notifications_min_severity: t.Optional[T_NotificationMinimumSeverity] = ...,
+            notifications_min_severity: t.Optional[
+                T_NotificationMinimumSeverity
+            ] = ...,
             notifications_disabled_categories: t.Optional[
                 t.Iterable[T_NotificationDisabledCategory]
             ] = ...,
+
             # undocumented/unsupported options
             # they may be change or removed any time without prior notice
             connection_acquisition_timeout: float = ...,
@@ -157,7 +162,8 @@ class GraphDatabase:
             database: t.Optional[str] = ...,
             fetch_size: int = ...,
             impersonated_user: t.Optional[str] = ...,
-            bookmark_manager: t.Union[BookmarkManager, BookmarkManager, None] = ...,
+            bookmark_manager: t.Union[BookmarkManager,
+                                      BookmarkManager, None] = ...
         ) -> Driver:
             ...
 
@@ -165,9 +171,7 @@ class GraphDatabase:
 
         @classmethod
         def driver(
-            cls,
-            uri: str,
-            *,
+            cls, uri: str, *,
             auth: t.Union[
                 # work around https://github.com/sphinx-doc/sphinx/pull/10880
                 # make sure TAuth is resolved in the docs
@@ -175,7 +179,7 @@ class GraphDatabase:
                 t.Union[t.Tuple[t.Any, t.Any], Auth, None],
                 AuthManager,
             ] = None,
-            **config,
+            **config
         ) -> Driver:
             """Create a driver.
 
@@ -193,25 +197,25 @@ class GraphDatabase:
             if not isinstance(auth, AuthManager):
                 with warnings.catch_warnings():
                     warnings.filterwarnings(
-                        "ignore",
-                        message=r".*\bAuth managers\b.*",
-                        category=PreviewWarning,
+                        "ignore", message=r".*\bAuth managers\b.*",
+                        category=PreviewWarning
                     )
                     auth = AuthManagers.static(auth)
             else:
-                preview_warn("Auth managers are a preview feature.", stack_level=2)
+                preview_warn("Auth managers are a preview feature.",
+                             stack_level=2)
             config["auth"] = auth
 
             # TODO: 6.0 - remove "trust" config option
             if "trust" in config.keys():
                 if config["trust"] not in (
                     TRUST_ALL_CERTIFICATES,
-                    TRUST_SYSTEM_CA_SIGNED_CERTIFICATES,
+                    TRUST_SYSTEM_CA_SIGNED_CERTIFICATES
                 ):
                     from ..exceptions import ConfigurationError
-
                     raise ConfigurationError(
-                        "The config setting `trust` values are {!r}".format(
+                        "The config setting `trust` values are {!r}"
+                        .format(
                             [
                                 TRUST_ALL_CERTIFICATES,
                                 TRUST_SYSTEM_CA_SIGNED_CERTIFICATES,
@@ -219,9 +223,9 @@ class GraphDatabase:
                         )
                     )
 
-            if "trusted_certificates" in config.keys() and not isinstance(
-                config["trusted_certificates"], TrustStore
-            ):
+            if ("trusted_certificates" in config.keys()
+                and not isinstance(config["trusted_certificates"],
+                                   TrustStore)):
                 raise ConnectionError(
                     "The config setting `trusted_certificates` must be of "
                     "type neo4j.TrustAll, neo4j.TrustCustomCAs, or"
@@ -230,15 +234,11 @@ class GraphDatabase:
                     )
                 )
 
-            if security_type in [
-                SECURITY_TYPE_SELF_SIGNED_CERTIFICATE,
-                SECURITY_TYPE_SECURE,
-            ] and (
-                "encrypted" in config.keys()
-                or "trust" in config.keys()
-                or "trusted_certificates" in config.keys()
-                or "ssl_context" in config.keys()
-            ):
+            if (security_type in [SECURITY_TYPE_SELF_SIGNED_CERTIFICATE, SECURITY_TYPE_SECURE]
+                and ("encrypted" in config.keys()
+                     or "trust" in config.keys()
+                     or "trusted_certificates" in config.keys()
+                     or "ssl_context" in config.keys())):
                 from ..exceptions import ConfigurationError
 
                 # TODO: 6.0 - remove "trust" from error message
@@ -246,7 +246,8 @@ class GraphDatabase:
                     'The config settings "encrypted", "trust", '
                     '"trusted_certificates", and "ssl_context" can only be '
                     "used with the URI schemes {!r}. Use the other URI "
-                    "schemes {!r} for setting encryption settings.".format(
+                    "schemes {!r} for setting encryption settings."
+                    .format(
                         [
                             URI_SCHEME_BOLT,
                             URI_SCHEME_NEO4J,
@@ -256,7 +257,7 @@ class GraphDatabase:
                             URI_SCHEME_BOLT_SECURE,
                             URI_SCHEME_NEO4J_SELF_SIGNED_CERTIFICATE,
                             URI_SCHEME_NEO4J_SECURE,
-                        ],
+                        ]
                     )
                 )
 
@@ -275,7 +276,7 @@ class GraphDatabase:
                         "routing context (URI parameters) is deprecated. They "
                         "will be ignored. This will raise an error in a "
                         'future release. Given URI "{}"'.format(uri),
-                        stack_level=2,
+                        stack_level=2
                     )
                     # TODO: 6.0 - raise instead of warning
                     # raise ValueError(
@@ -285,16 +286,15 @@ class GraphDatabase:
                 return cls.bolt_driver(parsed.netloc, **config)
             # else driver_type == DRIVER_NEO4J
             routing_context = parse_routing_context(parsed.query)
-            return cls.neo4j_driver(
-                parsed.netloc, routing_context=routing_context, **config
-            )
+            return cls.neo4j_driver(parsed.netloc,
+                                    routing_context=routing_context, **config)
 
     @classmethod
     def bookmark_manager(
         cls,
         initial_bookmarks: t.Union[None, Bookmarks, t.Iterable[str]] = None,
         bookmarks_supplier: t.Optional[_TBmSupplier] = None,
-        bookmarks_consumer: t.Optional[_TBmConsumer] = None,
+        bookmarks_consumer: t.Optional[_TBmConsumer] = None
     ) -> BookmarkManager:
         """Create a :class:`.BookmarkManager` with default implementation.
 
@@ -369,12 +369,12 @@ class GraphDatabase:
         return Neo4jBookmarkManager(
             initial_bookmarks=initial_bookmarks,
             bookmarks_supplier=bookmarks_supplier,
-            bookmarks_consumer=bookmarks_consumer,
+            bookmarks_consumer=bookmarks_consumer
         )
 
     @classmethod
     def bolt_driver(cls, target, **config):
-        """Create a driver for direct Bolt server access that uses
+        """ Create a driver for direct Bolt server access that uses
         socket I/O and thread-based concurrency.
         """
         from .._exceptions import (
@@ -386,12 +386,11 @@ class GraphDatabase:
             return BoltDriver.open(target, **config)
         except (BoltHandshakeError, BoltSecurityError) as error:
             from ..exceptions import ServiceUnavailable
-
             raise ServiceUnavailable(str(error)) from error
 
     @classmethod
     def neo4j_driver(cls, *targets, routing_context=None, **config):
-        """Create a driver for routing-capable Neo4j service access
+        """ Create a driver for routing-capable Neo4j service access
         that uses socket I/O and thread-based concurrency.
         """
         from .._exceptions import (
@@ -403,14 +402,14 @@ class GraphDatabase:
             return Neo4jDriver.open(*targets, routing_context=routing_context, **config)
         except (BoltHandshakeError, BoltSecurityError) as error:
             from ..exceptions import ServiceUnavailable
-
             raise ServiceUnavailable(str(error)) from error
 
 
 class _Direct:
+
+    # TODO: 6.0 - those attributes should be private
     default_host = "localhost"
     default_port = 7687
-
     default_target = ":"
 
     def __init__(self, address):
@@ -422,19 +421,20 @@ class _Direct:
 
     @classmethod
     def parse_target(cls, target):
-        """Parse a target string to produce an address."""
+        """ Parse a target string to produce an address.
+        """
         if not target:
             target = cls.default_target
-        address = Address.parse(
-            target, default_host=cls.default_host, default_port=cls.default_port
-        )
+        address = Address.parse(target, default_host=cls.default_host,
+                                default_port=cls.default_port)
         return address
 
 
 class _Routing:
+
+    # TODO: 6.0 - those attributes should be private
     default_host = "localhost"
     default_port = 7687
-
     default_targets = ": :17601 :17687"
 
     def __init__(self, initial_addresses):
@@ -446,20 +446,18 @@ class _Routing:
 
     @classmethod
     def parse_targets(cls, *targets):
-        """Parse a sequence of target strings to produce an address
+        """ Parse a sequence of target strings to produce an address
         list.
         """
         targets = " ".join(targets)
         if not targets:
             targets = cls.default_targets
-        addresses = Address.parse_list(
-            targets, default_host=cls.default_host, default_port=cls.default_port
-        )
+        addresses = Address.parse_list(targets, default_host=cls.default_host, default_port=cls.default_port)
         return addresses
 
 
 class Driver:
-    """Base class for all types of :class:`neo4j.Driver`, instances of
+    """ Base class for all types of :class:`neo4j.Driver`, instances of
     which are used as the primary access point to Neo4j.
     """
 
@@ -504,7 +502,8 @@ class Driver:
 
     def _prepare_session_config(self, **config):
         if "auth" in config:
-            preview_warn("User switching is a preview feature.", stack_level=3)
+            preview_warn("User switching is a preview feature.",
+                         stack_level=3)
         _normalize_notifications_config(config)
         return config
 
@@ -520,17 +519,21 @@ class Driver:
             impersonated_user: t.Optional[str] = ...,
             bookmarks: t.Union[t.Iterable[str], Bookmarks, None] = ...,
             default_access_mode: str = ...,
-            bookmark_manager: t.Union[BookmarkManager, BookmarkManager, None] = ...,
+            bookmark_manager: t.Union[BookmarkManager,
+                                      BookmarkManager, None] = ...,
             auth: _TAuth = ...,
-            notifications_min_severity: t.Optional[T_NotificationMinimumSeverity] = ...,
+            notifications_min_severity: t.Optional[
+                T_NotificationMinimumSeverity
+            ] = ...,
             notifications_disabled_categories: t.Optional[
                 t.Iterable[T_NotificationDisabledCategory]
             ] = ...,
+
             # undocumented/unsupported options
             # they may be change or removed any time without prior notice
             initial_retry_delay: float = ...,
             retry_delay_multiplier: float = ...,
-            retry_delay_jitter_factor: float = ...,
+            retry_delay_jitter_factor: float = ...
         ) -> Session:
             ...
 
@@ -548,7 +551,8 @@ class Driver:
             raise NotImplementedError
 
     def close(self) -> None:
-        """Shut down, closing any open connections in the pool."""
+        """ Shut down, closing any open connections in the pool.
+        """
         try:
             self._pool.close()
         except asyncio.CancelledError:
@@ -565,10 +569,14 @@ class Driver:
         routing_: T_RoutingControl = RoutingControl.WRITE,
         database_: t.Optional[str] = None,
         impersonated_user_: t.Optional[str] = None,
-        bookmark_manager_: t.Union[BookmarkManager, BookmarkManager, None] = ...,
+        bookmark_manager_: t.Union[
+            BookmarkManager, BookmarkManager, None
+        ] = ...,
         auth_: _TAuth = None,
-        result_transformer_: t.Callable[[Result], t.Union[EagerResult]] = ...,
-        **kwargs: t.Any,
+        result_transformer_: t.Callable[
+            [Result], t.Union[EagerResult]
+        ] = ...,
+        **kwargs: t.Any
     ) -> EagerResult:
         ...
 
@@ -580,10 +588,14 @@ class Driver:
         routing_: T_RoutingControl = RoutingControl.WRITE,
         database_: t.Optional[str] = None,
         impersonated_user_: t.Optional[str] = None,
-        bookmark_manager_: t.Union[BookmarkManager, BookmarkManager, None] = ...,
+        bookmark_manager_: t.Union[
+            BookmarkManager, BookmarkManager, None
+        ] = ...,
         auth_: _TAuth = None,
-        result_transformer_: t.Callable[[Result], t.Union[_T]] = ...,
-        **kwargs: t.Any,
+        result_transformer_: t.Callable[
+            [Result], t.Union[_T]
+        ] = ...,
+        **kwargs: t.Any
     ) -> _T:
         ...
 
@@ -595,13 +607,14 @@ class Driver:
         database_: t.Optional[str] = None,
         impersonated_user_: t.Optional[str] = None,
         bookmark_manager_: t.Union[
-            BookmarkManager, BookmarkManager, None, te.Literal[_DefaultEnum.default]
+            BookmarkManager, BookmarkManager, None,
+            te.Literal[_DefaultEnum.default]
         ] = _default,
         auth_: _TAuth = None,
         result_transformer_: t.Callable[
             [Result], t.Union[t.Any]
         ] = Result.to_eager_result,
-        **kwargs: t.Any,
+        **kwargs: t.Any
     ) -> t.Any:
         """Execute a query in a transaction function and return all results.
 
@@ -791,12 +804,11 @@ class Driver:
             If present, the bookmark manager is used to keep the query causally
             consistent with all work executed using the same bookmark manager.
 
-            Defaults to the driver's :attr:`.query_bookmark_manager`.
+            Defaults to the driver's :attr:`.execute_query_bookmark_manager`.
 
             Pass :data:`None` to disable causal consistency.
         :type bookmark_manager_:
-            typing.Union[neo4j.BookmarkManager, neo4j.BookmarkManager,
-                         None]
+            typing.Union[BookmarkManager, BookmarkManager, None]
         :param kwargs: additional keyword parameters. None of these can end
             with a single underscore. This is to avoid collisions with the
             keyword configuration parameters of this method. If you need to
@@ -814,7 +826,8 @@ class Driver:
             * Added the ``auth_`` parameter.
             * Stabilized from experimental.
         """
-        invalid_kwargs = [k for k in kwargs if k[-2:-1] != "_" and k[-1:] == "_"]
+        invalid_kwargs = [k for k in kwargs if
+                          k[-2:-1] != "_" and k[-1:] == "_"]
         if invalid_kwargs:
             raise ValueError(
                 "keyword parameters must not end with a single '_'. Found: %r"
@@ -830,23 +843,24 @@ class Driver:
         assert bookmark_manager_ is not _default
 
         with warnings.catch_warnings():
-            warnings.filterwarnings(
-                "ignore", message=r"^User switching\b.*", category=PreviewWarning
-            )
-            session = self.session(
-                database=database_,
-                impersonated_user=impersonated_user_,
-                bookmark_manager=bookmark_manager_,
-                auth=auth_,
-            )
+            warnings.filterwarnings("ignore",
+                                    message=r"^User switching\b.*",
+                                    category=PreviewWarning)
+            session = self.session(database=database_,
+                                   impersonated_user=impersonated_user_,
+                                   bookmark_manager=bookmark_manager_,
+                                   auth=auth_)
         with session:
             if routing_ == RoutingControl.WRITE:
                 executor = session.execute_write
             elif routing_ == RoutingControl.READ:
                 executor = session.execute_read
             else:
-                raise ValueError("Invalid routing control value: %r" % routing_)
-            return executor(_work, query_, parameters, result_transformer_)
+                raise ValueError("Invalid routing control value: %r"
+                                 % routing_)
+            return executor(
+                _work, query_, parameters, result_transformer_
+            )
 
     @property
     def execute_query_bookmark_manager(self) -> BookmarkManager:
@@ -859,7 +873,7 @@ class Driver:
             def example(driver: neo4j.Driver) -> None:
                 driver.execute_query("<QUERY 1>")
                 with driver.session(
-                    bookmark_manager=driver.query_bookmark_manager
+                    bookmark_manager=driver.execute_query_bookmark_manager
                 ) as session:
                     # every query inside this session will be causally chained
                     # (i.e., can read what was written by <QUERY 1>)
@@ -892,16 +906,20 @@ class Driver:
             impersonated_user: t.Optional[str] = ...,
             bookmarks: t.Union[t.Iterable[str], Bookmarks, None] = ...,
             default_access_mode: str = ...,
-            bookmark_manager: t.Union[BookmarkManager, BookmarkManager, None] = ...,
+            bookmark_manager: t.Union[BookmarkManager,
+                                      BookmarkManager, None] = ...,
             auth: t.Union[Auth, t.Tuple[t.Any, t.Any]] = ...,
-            notifications_min_severity: t.Optional[T_NotificationMinimumSeverity] = ...,
+            notifications_min_severity: t.Optional[
+                T_NotificationMinimumSeverity
+            ] = ...,
             notifications_disabled_categories: t.Optional[
                 t.Iterable[T_NotificationDisabledCategory]
             ] = ...,
+
             # undocumented/unsupported options
             initial_retry_delay: float = ...,
             retry_delay_multiplier: float = ...,
-            retry_delay_jitter_factor: float = ...,
+            retry_delay_jitter_factor: float = ...
         ) -> None:
             ...
 
@@ -958,16 +976,20 @@ class Driver:
             impersonated_user: t.Optional[str] = ...,
             bookmarks: t.Union[t.Iterable[str], Bookmarks, None] = ...,
             default_access_mode: str = ...,
-            bookmark_manager: t.Union[BookmarkManager, BookmarkManager, None] = ...,
+            bookmark_manager: t.Union[BookmarkManager,
+                                      BookmarkManager, None] = ...,
             auth: t.Union[Auth, t.Tuple[t.Any, t.Any]] = ...,
-            notifications_min_severity: t.Optional[T_NotificationMinimumSeverity] = ...,
+            notifications_min_severity: t.Optional[
+                T_NotificationMinimumSeverity
+            ] = ...,
             notifications_disabled_categories: t.Optional[
                 t.Iterable[T_NotificationDisabledCategory]
             ] = ...,
+
             # undocumented/unsupported options
             initial_retry_delay: float = ...,
             retry_delay_multiplier: float = ...,
-            retry_delay_jitter_factor: float = ...,
+            retry_delay_jitter_factor: float = ...
         ) -> ServerInfo:
             ...
 
@@ -1011,7 +1033,7 @@ class Driver:
             return self._get_server_info()
 
     def supports_multi_db(self) -> bool:
-        """Check if the server or cluster supports multi-databases.
+        """ Check if the server or cluster supports multi-databases.
 
         :returns: Returns true if the server or cluster the driver connects to
             supports multi-databases, otherwise false.
@@ -1043,11 +1065,14 @@ class Driver:
             impersonated_user: t.Optional[str] = ...,
             bookmarks: t.Union[t.Iterable[str], Bookmarks, None] = ...,
             default_access_mode: str = ...,
-            bookmark_manager: t.Union[BookmarkManager, BookmarkManager, None] = ...,
+            bookmark_manager: t.Union[
+                BookmarkManager, BookmarkManager, None
+            ] = ...,
+
             # undocumented/unsupported options
             initial_retry_delay: float = ...,
             retry_delay_multiplier: float = ...,
-            retry_delay_jitter_factor: float = ...,
+            retry_delay_jitter_factor: float = ...
         ) -> bool:
             ...
 
@@ -1055,7 +1080,9 @@ class Driver:
 
         @preview("User switching is a preview feature.")
         def verify_authentication(
-            self, auth: t.Union[Auth, t.Tuple[t.Any, t.Any], None] = None, **config
+            self,
+            auth: t.Union[Auth, t.Tuple[t.Any, t.Any], None] = None,
+            **config
         ) -> bool:
             """Verify that the authentication information is valid.
 
@@ -1105,10 +1132,9 @@ class Driver:
             try:
                 with warnings.catch_warnings():
                     warnings.filterwarnings(
-                        "ignore",
-                        message=r"^User switching\b.*",
-                        category=PreviewWarning,
-                    )
+                        "ignore", message=r"^User switching\b.*",
+                        category=PreviewWarning
+                )
                     session = self.session(**config)
                 with session as session:
                     session._verify_authentication()
@@ -1122,6 +1148,7 @@ class Driver:
                     return False
                 raise
             return True
+
 
     def supports_session_auth(self) -> bool:
         """Check if the remote supports connection re-authentication.
@@ -1153,7 +1180,7 @@ def _work(
     tx: ManagedTransaction,
     query: str,
     parameters: t.Dict[str, t.Any],
-    transformer: t.Callable[[Result], t.Union[_T]],
+    transformer: t.Callable[[Result], t.Union[_T]]
 ) -> _T:
     res = tx.run(query, parameters)
     if transformer is Result.to_eager_result:
@@ -1184,14 +1211,9 @@ class BoltDriver(_Direct, Driver):
         :rtype: :class: `neo4j.BoltDriver`
         """
         from .io import BoltPool
-
         address = cls.parse_target(target)
-        pool_config, default_workspace_config = Config.consume_chain(
-            config, PoolConfig, WorkspaceConfig
-        )
-        pool = BoltPool.open(
-            address, pool_config=pool_config, workspace_config=default_workspace_config
-        )
+        pool_config, default_workspace_config = Config.consume_chain(config, PoolConfig, WorkspaceConfig)
+        pool = BoltPool.open(address, pool_config=pool_config, workspace_config=default_workspace_config)
         return cls(pool, default_workspace_config)
 
     def __init__(self, pool, default_workspace_config):
@@ -1210,7 +1232,8 @@ class BoltDriver(_Direct, Driver):
             :rtype: :class: `neo4j.Session`
             """
             config = self._prepare_session_config(**config)
-            session_config = SessionConfig(self._default_workspace_config, config)
+            session_config = SessionConfig(self._default_workspace_config,
+                                           config)
             return Session(self._pool, session_config)
 
 
@@ -1228,17 +1251,9 @@ class Neo4jDriver(_Routing, Driver):
     @classmethod
     def open(cls, *targets, routing_context=None, **config):
         from .io import Neo4jPool
-
         addresses = cls.parse_targets(*targets)
-        pool_config, default_workspace_config = Config.consume_chain(
-            config, PoolConfig, WorkspaceConfig
-        )
-        pool = Neo4jPool.open(
-            *addresses,
-            routing_context=routing_context,
-            pool_config=pool_config,
-            workspace_config=default_workspace_config,
-        )
+        pool_config, default_workspace_config = Config.consume_chain(config, PoolConfig, WorkspaceConfig)
+        pool = Neo4jPool.open(*addresses, routing_context=routing_context, pool_config=pool_config, workspace_config=default_workspace_config)
         return cls(pool, default_workspace_config)
 
     def __init__(self, pool, default_workspace_config):
@@ -1249,18 +1264,19 @@ class Neo4jDriver(_Routing, Driver):
 
         def session(self, **config) -> Session:
             config = self._prepare_session_config(**config)
-            session_config = SessionConfig(self._default_workspace_config, config)
+            session_config = SessionConfig(self._default_workspace_config,
+                                           config)
             return Session(self._pool, session_config)
 
 
 def _normalize_notifications_config(config):
     if config.get("notifications_disabled_categories") is not None:
         config["notifications_disabled_categories"] = [
-            getattr(e, "value", e) for e in config["notifications_disabled_categories"]
+            getattr(e, "value", e)
+            for e in config["notifications_disabled_categories"]
         ]
     if config.get("notifications_min_severity") is not None:
         config["notifications_min_severity"] = getattr(
-            config["notifications_min_severity"],
-            "value",
-            config["notifications_min_severity"],
+            config["notifications_min_severity"], "value",
+            config["notifications_min_severity"]
         )

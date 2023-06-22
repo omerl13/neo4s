@@ -17,15 +17,13 @@
 
 
 class Structure:
+
     def __init__(self, tag, *fields):
         self.tag = tag
         self.fields = list(fields)
 
     def __repr__(self):
-        return "Structure[0x%02X](%s)" % (
-            ord(self.tag),
-            ", ".join(map(repr, self.fields)),
-        )
+        return "Structure[0x%02X](%s)" % (ord(self.tag), ", ".join(map(repr, self.fields)))
 
     def __eq__(self, other):
         try:

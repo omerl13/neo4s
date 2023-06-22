@@ -24,6 +24,7 @@ __all__ = [
 
 
 class DateType(type):
+
     def __getattr__(cls, name):
         try:
             return {
@@ -37,6 +38,7 @@ class DateType(type):
 
 
 class TimeType(type):
+
     def __getattr__(cls, name):
         try:
             return {
@@ -48,6 +50,7 @@ class TimeType(type):
 
 
 class DateTimeType(type):
+
     def __getattr__(cls, name):
         try:
             return {

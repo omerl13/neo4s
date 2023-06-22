@@ -30,43 +30,37 @@ class HydrationHandler(HydrationHandlerABC):  # type: ignore[no-redef]
             b"X": spatial.hydrate_point,
             b"Y": spatial.hydrate_point,
             b"D": temporal.hydrate_date,
-            b"T": temporal.hydrate_time,  # time zone offset
-            b"t": temporal.hydrate_time,  # no time zone
-            b"I": temporal.hydrate_datetime,  # time zone offset
-            b"i": temporal.hydrate_datetime,  # time zone name
-            b"d": temporal.hydrate_datetime,  # no time zone
+            b"T": temporal.hydrate_time,         # time zone offset
+            b"t": temporal.hydrate_time,         # no time zone
+            b"I": temporal.hydrate_datetime,     # time zone offset
+            b"i": temporal.hydrate_datetime,     # time zone name
+            b"d": temporal.hydrate_datetime,     # no time zone
             b"E": temporal.hydrate_duration,
         }
-        self.dehydration_hooks.update(
-            exact_types={
-                Point: spatial.dehydrate_point,
-                CartesianPoint: spatial.dehydrate_point,
-                WGS84Point: spatial.dehydrate_point,
-                Date: temporal.dehydrate_date,
-                date: temporal.dehydrate_date,
-                Time: temporal.dehydrate_time,
-                time: temporal.dehydrate_time,
-                DateTime: temporal.dehydrate_datetime,
-                datetime: temporal.dehydrate_datetime,
-                Duration: temporal.dehydrate_duration,
-                timedelta: temporal.dehydrate_timedelta,
-            }
-        )
+        self.dehydration_hooks.update(exact_types={
+            Point: spatial.dehydrate_point,
+            CartesianPoint: spatial.dehydrate_point,
+            WGS84Point: spatial.dehydrate_point,
+            Date: temporal.dehydrate_date,
+            date: temporal.dehydrate_date,
+            Time: temporal.dehydrate_time,
+            time: temporal.dehydrate_time,
+            DateTime: temporal.dehydrate_datetime,
+            datetime: temporal.dehydrate_datetime,
+            Duration: temporal.dehydrate_duration,
+            timedelta: temporal.dehydrate_timedelta,
+        })
         if np is not None:
-            self.dehydration_hooks.update(
-                exact_types={
-                    np.datetime64: temporal.dehydrate_np_datetime,
-                    np.timedelta64: temporal.dehydrate_np_timedelta,
-                }
-            )
+            self.dehydration_hooks.update(exact_types={
+                np.datetime64: temporal.dehydrate_np_datetime,
+                np.timedelta64: temporal.dehydrate_np_timedelta,
+            })
         if pd is not None:
-            self.dehydration_hooks.update(
-                exact_types={
-                    pd.Timestamp: temporal.dehydrate_pandas_datetime,
-                    pd.Timedelta: temporal.dehydrate_pandas_timedelta,
-                    type(pd.NaT): lambda _: None,
-                }
-            )
+            self.dehydration_hooks.update(exact_types={
+                pd.Timestamp: temporal.dehydrate_pandas_datetime,
+                pd.Timedelta: temporal.dehydrate_pandas_timedelta,
+                type(pd.NaT): lambda _: None,
+            })
 
     def new_hydration_scope(self):
         self._created_scope = True

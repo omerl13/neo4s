@@ -41,7 +41,8 @@ __all__ = (
 
 
 class AsyncTransactionBase:
-    def __init__(self, connection, fetch_size, on_closed, on_error, on_cancel):
+    def __init__(self, connection, fetch_size, on_closed, on_error,
+                 on_cancel):
         self._connection = connection
         self._error_handling_connection = ConnectionErrorHandler(
             connection, self._error_handler
@@ -71,26 +72,15 @@ class AsyncTransactionBase:
         await self._close()
 
     async def _begin(
-        self,
-        database,
-        imp_user,
-        bookmarks,
-        access_mode,
-        metadata,
-        timeout,
-        notifications_min_severity,
-        notifications_disabled_categories,
+        self, database, imp_user, bookmarks, access_mode, metadata, timeout,
+        notifications_min_severity, notifications_disabled_categories,
     ):
         self._database = database
         self._connection.begin(
-            bookmarks=bookmarks,
-            metadata=metadata,
-            timeout=timeout,
-            mode=access_mode,
-            db=database,
-            imp_user=imp_user,
+            bookmarks=bookmarks, metadata=metadata, timeout=timeout,
+            mode=access_mode, db=database, imp_user=imp_user,
             notifications_min_severity=notifications_min_severity,
-            notifications_disabled_categories=notifications_disabled_categories,
+            notifications_disabled_categories=notifications_disabled_categories
         )
         await self._error_handling_connection.send_all()
         await self._error_handling_connection.fetch_all()
@@ -114,9 +104,9 @@ class AsyncTransactionBase:
         self,
         query: te.LiteralString,
         parameters: t.Optional[t.Dict[str, t.Any]] = None,
-        **kwparameters: t.Any,
+        **kwparameters: t.Any
     ) -> AsyncResult:
-        """Run a Cypher query within the context of this transaction.
+        """ Run a Cypher query within the context of this transaction.
 
         Cypher is typically expressed as a query template plus a
         set of named parameters. In Python, parameters may be expressed
@@ -149,19 +139,19 @@ class AsyncTransactionBase:
         if self._closed_flag:
             raise TransactionError(self, "Transaction closed")
         if self._last_error:
-            raise TransactionError(self, "Transaction failed") from self._last_error
+            raise TransactionError(self,
+                                   "Transaction failed") from self._last_error
 
-        if self._results and self._connection.supports_multiple_results is False:
+        if (self._results
+                and self._connection.supports_multiple_results is False):
             # Bolt 3 Support
             # Buffer up all records for the previous Result because it does not
             # have any qid to fetch in batches.
             await self._results[-1]._buffer_all()
 
         result = AsyncResult(
-            self._connection,
-            self._fetch_size,
-            self._result_on_closed_handler,
-            self._error_handler,
+            self._connection, self._fetch_size, self._result_on_closed_handler,
+            self._error_handler
         )
         self._results.append(result)
 
@@ -178,7 +168,8 @@ class AsyncTransactionBase:
         if self._closed_flag:
             raise TransactionError(self, "Transaction closed")
         if self._last_error:
-            raise TransactionError(self, "Transaction failed") from self._last_error
+            raise TransactionError(self,
+                                   "Transaction failed") from self._last_error
 
         metadata = {}
         try:
@@ -208,11 +199,9 @@ class AsyncTransactionBase:
 
         metadata = {}
         try:
-            if not (
-                self._connection.defunct()
-                or self._connection.closed()
-                or self._connection.is_reset
-            ):
+            if not (self._connection.defunct()
+                    or self._connection.closed()
+                    or self._connection.is_reset):
                 # DISCARD pending records then do a rollback.
                 await self._consume_results()
                 self._connection.rollback(on_success=metadata.update)
@@ -226,13 +215,13 @@ class AsyncTransactionBase:
             await AsyncUtil.callback(self._on_closed)
 
     async def _close(self):
-        """Close this transaction, triggering a ROLLBACK if not closed."""
+        """Close this transaction, triggering a ROLLBACK if not closed.
+        """
         if self._closed_flag:
             return
         await self._rollback()
 
     if AsyncUtil.is_async_code:
-
         def _cancel(self) -> None:
             """Cancel this transaction.
 
@@ -271,7 +260,7 @@ class AsyncTransactionBase:
 
 
 class AsyncTransaction(AsyncTransactionBase):
-    """Container for multiple Cypher queries to be executed within a single
+    """ Container for multiple Cypher queries to be executed within a single
     context. :class:`AsyncTransaction` objects can be used as a context
     managers (:py:const:`async with` block) where the transaction is committed
     or rolled back on based on whether an exception is raised::
@@ -306,7 +295,6 @@ class AsyncTransaction(AsyncTransactionBase):
         return self._closed()
 
     if AsyncUtil.is_async_code:
-
         @wraps(AsyncTransactionBase._cancel)
         def cancel(self) -> None:
             return self._cancel()
@@ -335,5 +323,4 @@ class AsyncManagedTransaction(AsyncTransactionBase):
         but would cause hard to interpret errors when managed explicitly
         (committed or rolled back by user code).
     """
-
     pass

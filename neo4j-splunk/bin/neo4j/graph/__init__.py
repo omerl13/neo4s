@@ -60,35 +60,37 @@ class Graph:
         self._legacy_relationships: t.Dict[int, Relationship] = {}
         self._relationship_types: t.Dict[str, t.Type[Relationship]] = {}
         self._node_set_view = EntitySetView(self._nodes, self._legacy_nodes)
-        self._relationship_set_view = EntitySetView(
-            self._relationships, self._legacy_relationships
-        )
+        self._relationship_set_view = EntitySetView(self._relationships,
+                                                    self._legacy_relationships)
 
     @property
     def nodes(self) -> EntitySetView[Node]:
-        """Access a set view of the nodes in this graph."""
+        """ Access a set view of the nodes in this graph.
+        """
         return self._node_set_view
 
     @property
     def relationships(self) -> EntitySetView[Relationship]:
-        """Access a set view of the relationships in this graph."""
+        """ Access a set view of the relationships in this graph.
+        """
         return self._relationship_set_view
 
     def relationship_type(self, name: str) -> t.Type[Relationship]:
-        """Obtain a :class:`.Relationship` subclass for a given
+        """ Obtain a :class:`.Relationship` subclass for a given
         relationship type name.
         """
         try:
             cls = self._relationship_types[name]
         except KeyError:
             cls = self._relationship_types[name] = t.cast(
-                t.Type[Relationship], type(str(name), (Relationship,), {})
+                t.Type[Relationship],
+                type(str(name), (Relationship,), {})
             )
         return cls
 
 
 class Entity(t.Mapping[str, t.Any]):
-    """Base class for :class:`.Node` and :class:`.Relationship` that
+    """ Base class for :class:`.Node` and :class:`.Relationship` that
     provides :class:`.Graph` membership and property containment
     functionality.
     """
@@ -98,7 +100,7 @@ class Entity(t.Mapping[str, t.Any]):
         graph: Graph,
         element_id: str,
         id_: int,
-        properties: t.Optional[t.Dict[str, t.Any]],
+        properties: t.Optional[t.Dict[str, t.Any]]
     ) -> None:
         self._graph = graph
         self._element_id = element_id
@@ -109,11 +111,9 @@ class Entity(t.Mapping[str, t.Any]):
 
     def __eq__(self, other: t.Any) -> bool:
         try:
-            return (
-                type(self) == type(other)
-                and self.graph == other.graph
-                and self.element_id == other.element_id
-            )
+            return (type(self) == type(other)
+                    and self.graph == other.graph
+                    and self.element_id == other.element_id)
         except AttributeError:
             return False
 
@@ -137,7 +137,8 @@ class Entity(t.Mapping[str, t.Any]):
 
     @property
     def graph(self) -> Graph:
-        """The :class:`.Graph` to which this entity belongs."""
+        """ The :class:`.Graph` to which this entity belongs.
+        """
         return self._graph
 
     @property  # type: ignore
@@ -172,24 +173,29 @@ class Entity(t.Mapping[str, t.Any]):
         return self._element_id
 
     def get(self, name: str, default: t.Optional[object] = None) -> t.Any:
-        """Get a property value by name, optionally with a default."""
+        """ Get a property value by name, optionally with a default.
+        """
         return self._properties.get(name, default)
 
     def keys(self) -> t.KeysView[str]:
-        """Return an iterable of all property names."""
+        """ Return an iterable of all property names.
+        """
         return self._properties.keys()
 
     def values(self) -> t.ValuesView[t.Any]:
-        """Return an iterable of all property values."""
+        """ Return an iterable of all property values.
+        """
         return self._properties.values()
 
     def items(self) -> t.ItemsView[str, t.Any]:
-        """Return an iterable of all property name-value pairs."""
+        """ Return an iterable of all property name-value pairs.
+        """
         return self._properties.items()
 
 
 class EntitySetView(Mapping, t.Generic[_T]):
-    """View of a set of :class:`.Entity` instances within a :class:`.Graph`."""
+    """ View of a set of :class:`.Entity` instances within a :class:`.Graph`.
+    """
 
     def __init__(
         self,
@@ -217,7 +223,8 @@ class EntitySetView(Mapping, t.Generic[_T]):
 
 
 class Node(Entity):
-    """Self-contained graph node."""
+    """ Self-contained graph node.
+    """
 
     def __init__(
         self,
@@ -225,25 +232,25 @@ class Node(Entity):
         element_id: str,
         id_: int,
         n_labels: t.Optional[t.Iterable[str]] = None,
-        properties: t.Optional[t.Dict[str, t.Any]] = None,
+        properties: t.Optional[t.Dict[str, t.Any]] = None
     ) -> None:
         Entity.__init__(self, graph, element_id, id_, properties)
         self._labels = frozenset(n_labels or ())
 
     def __repr__(self) -> str:
-        return (
-            f"<Node element_id={self._element_id!r} "
-            f"labels={self._labels!r} properties={self._properties!r}>"
-        )
+        return (f"<Node element_id={self._element_id!r} "
+                f"labels={self._labels!r} properties={self._properties!r}>")
 
     @property
     def labels(self) -> t.FrozenSet[str]:
-        """The set of labels attached to this node."""
+        """ The set of labels attached to this node.
+        """
         return self._labels
 
 
 class Relationship(Entity):
-    """Self-contained graph relationship."""
+    """ Self-contained graph relationship.
+    """
 
     def __init__(
         self,
@@ -257,37 +264,39 @@ class Relationship(Entity):
         self._end_node: t.Optional[Node] = None
 
     def __repr__(self) -> str:
-        return (
-            f"<Relationship element_id={self._element_id!r} "
-            f"nodes={self.nodes!r} type={self.type!r} "
-            f"properties={self._properties!r}>"
-        )
+        return (f"<Relationship element_id={self._element_id!r} "
+                f"nodes={self.nodes!r} type={self.type!r} "
+                f"properties={self._properties!r}>")
 
     @property
     def nodes(self) -> t.Tuple[t.Optional[Node], t.Optional[Node]]:
-        """The pair of nodes which this relationship connects."""
+        """ The pair of nodes which this relationship connects.
+        """
         return self._start_node, self._end_node
 
     @property
     def start_node(self) -> t.Optional[Node]:
-        """The start node of this relationship."""
+        """ The start node of this relationship.
+        """
         return self._start_node
 
     @property
     def end_node(self) -> t.Optional[Node]:
-        """The end node of this relationship."""
+        """ The end node of this relationship.
+        """
         return self._end_node
 
     @property
     def type(self) -> str:
-        """The type name of this relationship.
+        """ The type name of this relationship.
         This is functionally equivalent to ``type(relationship).__name__``.
         """
         return type(self).__name__
 
 
 class Path:
-    """Self-contained graph path."""
+    """ Self-contained graph path.
+    """
 
     def __init__(self, start_node: Node, *relationships: Relationship) -> None:
         assert isinstance(start_node, Node)
@@ -299,25 +308,17 @@ class Path:
             elif relationship.end_node == nodes[-1]:
                 nodes.append(t.cast(Node, relationship.start_node))
             else:
-                raise ValueError(
-                    "Relationship %d does not connect to the last node" % i
-                )
+                raise ValueError("Relationship %d does not connect to the last node" % i)
         self._nodes = tuple(nodes)
         self._relationships = relationships
 
     def __repr__(self) -> str:
-        return "<Path start=%r end=%r size=%s>" % (
-            self.start_node,
-            self.end_node,
-            len(self),
-        )
+        return "<Path start=%r end=%r size=%s>" % \
+               (self.start_node, self.end_node, len(self))
 
     def __eq__(self, other: t.Any) -> bool:
         try:
-            return (
-                self.start_node == other.start_node
-                and self.relationships == other.relationships
-            )
+            return self.start_node == other.start_node and self.relationships == other.relationships
         except AttributeError:
             return False
 
@@ -338,25 +339,30 @@ class Path:
 
     @property
     def graph(self) -> Graph:
-        """The :class:`.Graph` to which this path belongs."""
+        """ The :class:`.Graph` to which this path belongs.
+        """
         return self._nodes[0].graph
 
     @property
     def nodes(self) -> t.Tuple[Node, ...]:
-        """The sequence of :class:`.Node` objects in this path."""
+        """ The sequence of :class:`.Node` objects in this path.
+        """
         return self._nodes
 
     @property
     def start_node(self) -> Node:
-        """The first :class:`.Node` in this path."""
+        """ The first :class:`.Node` in this path.
+        """
         return self._nodes[0]
 
     @property
     def end_node(self) -> Node:
-        """The last :class:`.Node` in this path."""
+        """ The last :class:`.Node` in this path.
+        """
         return self._nodes[-1]
 
     @property
     def relationships(self) -> t.Tuple[Relationship, ...]:
-        """The sequence of :class:`.Relationship` objects in this path."""
+        """ The sequence of :class:`.Relationship` objects in this path.
+        """
         return self._relationships

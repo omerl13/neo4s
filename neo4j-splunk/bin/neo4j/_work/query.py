@@ -38,12 +38,11 @@ class Query:
     :param metadata: metadata attached to the query.
     :param timeout: seconds.
     """
-
     def __init__(
         self,
         text: te.LiteralString,
         metadata: t.Optional[t.Dict[str, t.Any]] = None,
-        timeout: t.Optional[float] = None,
+        timeout: t.Optional[float] = None
     ) -> None:
         self.text = text
 
@@ -55,7 +54,8 @@ class Query:
 
 
 def unit_of_work(
-    metadata: t.Optional[t.Dict[str, t.Any]] = None, timeout: t.Optional[float] = None
+    metadata: t.Optional[t.Dict[str, t.Any]] = None,
+    timeout: t.Optional[float] = None
 ) -> t.Callable[[_T], _T]:
     """Decorator giving extra control over transaction function configuration.
 
@@ -99,6 +99,7 @@ def unit_of_work(
     """
 
     def wrapper(f):
+
         def wrapped(*args, **kwargs):
             return f(*args, **kwargs)
 

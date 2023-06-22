@@ -27,6 +27,7 @@ log = getLogger("neo4j")
 
 
 class OrderedSet(MutableSet):
+
     def __init__(self, elements=()):
         # dicts keep insertion order starting with Python 3.7
         self._elements = dict.fromkeys(elements)
@@ -75,9 +76,10 @@ class OrderedSet(MutableSet):
 
 
 class RoutingTable:
+
     @classmethod
     def parse_routing_info(cls, *, database, servers, ttl):
-        """Parse the records returned from the procedure call and
+        """ Parse the records returned from the procedure call and
         return a new RoutingTable instance.
         """
         routers = []
@@ -98,13 +100,7 @@ class RoutingTable:
         except (KeyError, TypeError) as exc:
             raise ValueError("Cannot parse routing info") from exc
         else:
-            return cls(
-                database=database,
-                routers=routers,
-                readers=readers,
-                writers=writers,
-                ttl=ttl,
-            )
+            return cls(database=database, routers=routers, readers=readers, writers=writers, ttl=ttl)
 
     def __init__(self, *, database, routers=(), readers=(), writers=(), ttl=0):
         self.initial_routers = OrderedSet(routers)
@@ -117,27 +113,21 @@ class RoutingTable:
         self.database = database
 
     def __repr__(self):
-        return (
-            "RoutingTable(database=%r routers=%r, readers=%r, writers=%r, last_updated_time=%r, ttl=%r)"
-            % (
-                self.database,
-                self.routers,
-                self.readers,
-                self.writers,
-                self.last_updated_time,
-                self.ttl,
-            )
+        return "RoutingTable(database=%r routers=%r, readers=%r, writers=%r, last_updated_time=%r, ttl=%r)" % (
+            self.database,
+            self.routers,
+            self.readers,
+            self.writers,
+            self.last_updated_time,
+            self.ttl,
         )
 
     def __contains__(self, address):
-        return (
-            address in self.routers
-            or address in self.readers
-            or address in self.writers
-        )
+        return address in self.routers or address in self.readers or address in self.writers
 
     def is_fresh(self, readonly=False):
-        """Indicator for whether routing information is still usable."""
+        """ Indicator for whether routing information is still usable.
+        """
         assert isinstance(readonly, bool)
         expired = self.last_updated_time + self.ttl <= perf_counter()
         if readonly:
@@ -145,43 +135,28 @@ class RoutingTable:
         else:
             has_server_for_mode = bool(self.writers)
         res = not expired and self.routers and has_server_for_mode
-        log.debug(
-            "[#0000]  _: <ROUTING> checking table freshness "
-            "(readonly=%r): table expired=%r, "
-            "has_server_for_mode=%r, table routers=%r => %r",
-            readonly,
-            expired,
-            has_server_for_mode,
-            self.routers,
-            res,
-        )
+        log.debug("[#0000]  _: <ROUTING> checking table freshness "
+                  "(readonly=%r): table expired=%r, "
+                  "has_server_for_mode=%r, table routers=%r => %r",
+                  readonly, expired, has_server_for_mode, self.routers, res)
         return res
 
     def should_be_purged_from_memory(self):
-        """Check if the routing table is stale and not used for a long time and should be removed from memory.
+        """ Check if the routing table is stale and not used for a long time and should be removed from memory.
 
         :returns: Returns true if it is old and not used for a while.
         :rtype: bool
         """
         from ._conf import RoutingConfig
-
         perf_time = perf_counter()
-        res = (
-            self.last_updated_time + self.ttl + RoutingConfig.routing_table_purge_delay
-            <= perf_time
-        )
-        log.debug(
-            "[#0000]  _: <ROUTING> purge check: "
-            "last_updated_time=%r, ttl=%r, perf_time=%r => %r",
-            self.last_updated_time,
-            self.ttl,
-            perf_time,
-            res,
-        )
+        res = self.last_updated_time + self.ttl + RoutingConfig.routing_table_purge_delay <= perf_time
+        log.debug("[#0000]  _: <ROUTING> purge check: "
+                  "last_updated_time=%r, ttl=%r, perf_time=%r => %r",
+                  self.last_updated_time, self.ttl, perf_time, res)
         return res
 
     def update(self, new_routing_table):
-        """Update the current routing table with new routing information
+        """ Update the current routing table with new routing information
         from a replacement table.
         """
         self.routers.replace(new_routing_table.routers)

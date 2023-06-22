@@ -47,7 +47,7 @@ _K = t.Union[int, str]
 
 
 class Record(tuple, Mapping):
-    """A :class:`.Record` is an immutable ordered collection of key-value
+    """ A :class:`.Record` is an immutable ordered collection of key-value
     pairs. It is generally closer to a :py:class:`namedtuple` than to a
     :py:class:`OrderedDict` in as much as iteration of the collection will
     yield values rather than keys.
@@ -79,16 +79,14 @@ class Record(tuple, Mapping):
     def __repr__(self) -> str:
         return "<%s %s>" % (
             self.__class__.__name__,
-            " ".join(
-                "%s=%r" % (field, value)
-                for field, value in zip(self.__keys, super().__iter__())
-            ),
+            " ".join("%s=%r" % (field, value)
+                     for field, value in zip(self.__keys, super().__iter__()))
         )
 
     __str__ = __repr__
 
     def __eq__(self, other: object) -> bool:
-        """In order to be flexible regarding comparison, the equality rules
+        """ In order to be flexible regarding comparison, the equality rules
         for a record permit comparison with any other Sequence or Mapping.
 
         :param other:
@@ -120,7 +118,9 @@ class Record(tuple, Mapping):
                 raise self._broken_record_error(i) from v.error
             yield v
 
-    def __getitem__(self, key: t.Union[_K, slice]) -> t.Any:  # type: ignore[override]
+    def __getitem__(  # type: ignore[override]
+        self, key: t.Union[_K, slice]
+    ) -> t.Any:
         if isinstance(key, slice):
             keys = self.__keys[key]
             values = super().__getitem__(key)
@@ -141,7 +141,7 @@ class Record(tuple, Mapping):
         return self.__class__(zip(keys, values))
 
     def get(self, key: str, default: t.Optional[object] = None) -> t.Any:
-        """Obtain a value from the record by key, returning a default
+        """ Obtain a value from the record by key, returning a default
         value if the key does not exist.
 
         :param key: a key
@@ -159,7 +159,7 @@ class Record(tuple, Mapping):
             return default
 
     def index(self, key: _K) -> int:  # type: ignore[override]
-        """Return the index of the given item.
+        """ Return the index of the given item.
 
         :param key: a key
 
@@ -177,8 +177,10 @@ class Record(tuple, Mapping):
         else:
             raise TypeError(key)
 
-    def value(self, key: _K = 0, default: t.Optional[object] = None) -> t.Any:
-        """Obtain a single value from the record by index or key. If no
+    def value(
+        self, key: _K = 0, default: t.Optional[object] = None
+    ) -> t.Any:
+        """ Obtain a single value from the record by index or key. If no
         index or key is specified, the first value is returned. If the
         specified item does not exist, the default value is returned.
 
@@ -195,14 +197,14 @@ class Record(tuple, Mapping):
             return self[index]
 
     def keys(self) -> t.List[str]:  # type: ignore[override]
-        """Return the keys of the record.
+        """ Return the keys of the record.
 
         :returns: list of key names
         """
         return list(self.__keys)
 
     def values(self, *keys: _K) -> t.List[t.Any]:  # type: ignore[override]
-        """Return the values of the record, optionally filtering to
+        """ Return the values of the record, optionally filtering to
         include only certain values by index or key.
 
         :param keys: indexes or keys of the items to include; if none
@@ -223,7 +225,7 @@ class Record(tuple, Mapping):
         return list(self)
 
     def items(self, *keys):
-        """Return the fields of the record as a list of key and value tuples
+        """ Return the fields of the record as a list of key and value tuples
 
         :returns: a list of value tuples
         """
@@ -237,12 +239,11 @@ class Record(tuple, Mapping):
                 else:
                     d.append((self.__keys[i], self[i]))
             return d
-        return list(
-            (self.__keys[i], self._super_getitem_single(i)) for i in range(len(self))
-        )
+        return list((self.__keys[i], self._super_getitem_single(i))
+                    for i in range(len(self)))
 
     def data(self, *keys: _K) -> t.Dict[str, t.Any]:
-        """Return the keys and values of this record as a dictionary,
+        """ Return the keys and values of this record as a dictionary,
         optionally including only certain values by index or key. Keys
         provided in the items that are not in the record will be
         inserted with a value of :data:`None`; indexes provided
@@ -259,13 +260,13 @@ class Record(tuple, Mapping):
 
 
 class DataTransformer(metaclass=ABCMeta):
-    """Abstract base class for transforming data from one form into
+    """ Abstract base class for transforming data from one form into
     another.
     """
 
     @abstractmethod
     def transform(self, x):
-        """Transform a value, or collection of values.
+        """ Transform a value, or collection of values.
 
         :param x: input value
         :returns: output value
@@ -273,17 +274,16 @@ class DataTransformer(metaclass=ABCMeta):
 
 
 class RecordExporter(DataTransformer):
-    """Transformer class used by the :meth:`.Record.data` method."""
+    """ Transformer class used by the :meth:`.Record.data` method.
+    """
 
     def transform(self, x):
         if isinstance(x, Node):
             return self.transform(dict(x))
         elif isinstance(x, Relationship):
-            return (
-                self.transform(dict(x.start_node)),
-                x.__class__.__name__,
-                self.transform(dict(x.end_node)),
-            )
+            return (self.transform(dict(x.start_node)),
+                    x.__class__.__name__,
+                    self.transform(dict(x.end_node)))
         elif isinstance(x, Path):
             path = [self.transform(x.start_node)]
             for i, relationship in enumerate(x.relationships):
@@ -311,13 +311,11 @@ class RecordTableRowExporter(DataTransformer):
     def transform(self, x):
         assert isinstance(x, Mapping)
         typ = type(x)
-        return typ(
-            item
-            for k, v in x.items()
-            for item in self._transform(
-                v, prefix=k.replace("\\", "\\\\").replace(".", "\\.")
-            ).items()
-        )
+        return typ(item
+                   for k, v in x.items()
+                   for item in self._transform(
+                       v, prefix=k.replace("\\", "\\\\").replace(".", "\\.")
+                   ).items())
 
     def _transform(self, x, prefix):
         if isinstance(x, Node):
@@ -342,7 +340,9 @@ class RecordTableRowExporter(DataTransformer):
             return dict(
                 item
                 for i, v in enumerate(x)
-                for item in self._transform(v, prefix="%s[].%i" % (prefix, i)).items()
+                for item in self._transform(
+                    v, prefix="%s[].%i" % (prefix, i)
+                ).items()
             )
         elif isinstance(x, Mapping):
             typ = type(x)
@@ -350,9 +350,8 @@ class RecordTableRowExporter(DataTransformer):
                 item
                 for k, v in x.items()
                 for item in self._transform(
-                    v,
-                    prefix="%s{}.%s"
-                    % (prefix, k.replace("\\", "\\\\").replace(".", "\\.")),
+                    v, prefix="%s{}.%s" % (prefix, k.replace("\\", "\\\\")
+                                                    .replace(".", "\\."))
                 ).items()
             )
         else:

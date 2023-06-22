@@ -44,5 +44,5 @@ deprecation_warn(
     "no longer be available for import in future versions."
     "`ExperimentalWarning` can be imported from `neo4j` directly and "
     "`neo4j.meta.version` is exposed as `neo4j.__version__`.",
-    stack_level=2,
+    stack_level=2
 )

@@ -222,7 +222,6 @@ class RoutingControl(str, Enum):
         * renamed ``READERS`` to ``READ`` and ``WRITERS`` to ``WRITE``
         * stabilized from experimental
     """
-
     READ = "r"
     WRITE = "w"
 

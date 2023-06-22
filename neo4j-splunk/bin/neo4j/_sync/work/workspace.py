@@ -43,6 +43,7 @@ log = logging.getLogger("neo4j")
 
 
 class Workspace:
+
     def __init__(self, pool, config):
         assert isinstance(config, WorkspaceConfig)
         self._pool = pool
@@ -94,30 +95,24 @@ class Workspace:
             deprecation_warn(
                 "Passing an iterable as `bookmarks` to `Session` is "
                 "deprecated. Please use a `Bookmarks` instance.",
-                stack_level=5,
+                stack_level=5
             )
             prepared_bookmarks = tuple(bookmarks)
         elif not bookmarks:
             prepared_bookmarks = ()
         else:
-            raise TypeError(
-                "Bookmarks must be an instance of Bookmarks or an "
-                "iterable of raw bookmarks (deprecated)."
-            )
+            raise TypeError("Bookmarks must be an instance of Bookmarks or an "
+                            "iterable of raw bookmarks (deprecated).")
         self._initial_bookmarks = self._bookmarks = prepared_bookmarks
 
-    def _get_bookmarks(
-        self,
-    ):
+    def _get_bookmarks(self,):
         if self._bookmark_manager is None:
             return self._bookmarks
 
-        self._last_from_bookmark_manager = tuple(
-            {
-                *Util.callback(self._bookmark_manager.get_bookmarks),
-                *self._initial_bookmarks,
-            }
-        )
+        self._last_from_bookmark_manager = tuple({
+            *Util.callback(self._bookmark_manager.get_bookmarks),
+            *self._initial_bookmarks
+        })
         return self._last_from_bookmark_manager
 
     def _update_bookmarks(self, new_bookmarks):
@@ -129,7 +124,8 @@ class Workspace:
             return
         previous_bookmarks = self._last_from_bookmark_manager
         Util.callback(
-            self._bookmark_manager.update_bookmarks, previous_bookmarks, new_bookmarks
+            self._bookmark_manager.update_bookmarks,
+            previous_bookmarks, new_bookmarks
         )
 
     def _update_bookmark(self, bookmark):
@@ -151,9 +147,8 @@ class Workspace:
             self._connection.fetch_all()
             self._disconnect()
         if not self._cached_database:
-            if self._config.database is not None or not isinstance(
-                self._pool, Neo4jPool
-            ):
+            if (self._config.database is not None
+                    or not isinstance(self._pool, Neo4jPool)):
                 self._set_cached_database(self._config.database)
             else:
                 # This is the first time we open a connection to a server in a
@@ -169,7 +164,7 @@ class Workspace:
                     bookmarks=self._get_bookmarks(),
                     auth=auth,
                     acquisition_timeout=acquisition_timeout,
-                    database_callback=self._set_cached_database,
+                    database_callback=self._set_cached_database
                 )
         acquire_kwargs_ = {
             "access_mode": access_mode,

@@ -38,7 +38,8 @@ from ..api import ServerInfo
 
 
 class ResultSummary:
-    """A summary of execution returned with a :class:`.Result` object."""
+    """ A summary of execution returned with a :class:`.Result` object.
+    """
 
     #: A :class:`neo4j.ServerInfo` instance. Provides some basic information of the server where the result is obtained from.
     server: ServerInfo
@@ -95,8 +96,7 @@ class ResultSummary:
             if self.query_type not in ["r", "w", "rw", "s"]:
                 raise BoltProtocolError(
                     "Unexpected query type '%s' received from server. Consider "
-                    "updating the driver.",
-                    address,
+                    "updating the driver.", address
                 )
         self.query_type = metadata.get("type")
         self.plan = metadata.get("plan")
@@ -120,13 +120,15 @@ class ResultSummary:
         """
         if getattr(self, "_summary_notifications", None) is None:
             self._summary_notifications = [
-                SummaryNotification._from_metadata(n) for n in self.notifications or ()
+                SummaryNotification._from_metadata(n)
+                for n in self.notifications or ()
             ]
         return self._summary_notifications
 
 
 class SummaryCounters:
-    """Contains counters for various operations that a query triggered."""
+    """ Contains counters for various operations that a query triggered.
+    """
 
     #:
     nodes_created: int = 0
@@ -199,16 +201,11 @@ class SummaryCounters:
         if self._contains_updates is not None:
             return self._contains_updates
         return bool(
-            self.nodes_created
-            or self.nodes_deleted
-            or self.relationships_created
-            or self.relationships_deleted
-            or self.properties_set
-            or self.labels_added
-            or self.labels_removed
-            or self.indexes_added
-            or self.indexes_removed
-            or self.constraints_added
+            self.nodes_created or self.nodes_deleted
+            or self.relationships_created or self.relationships_deleted
+            or self.properties_set or self.labels_added
+            or self.labels_removed or self.indexes_added
+            or self.indexes_removed or self.constraints_added
             or self.constraints_removed
         )
 
@@ -221,8 +218,8 @@ class SummaryCounters:
 
 
 _SEVERITY_LOOKUP = {
-    "WARNING": NotificationSeverity.WARNING,
-    "INFORMATION": NotificationSeverity.INFORMATION,
+   "WARNING": NotificationSeverity.WARNING,
+   "INFORMATION": NotificationSeverity.INFORMATION,
 }
 
 _CATEGORY_LOOKUP = {
@@ -257,7 +254,9 @@ class SummaryNotification:
     def _from_metadata(cls, metadata):
         if not isinstance(metadata, dict):
             return SummaryNotification()
-        kwargs = {"position": SummaryNotificationPosition._from_metadata(metadata)}
+        kwargs = {
+            "position": SummaryNotificationPosition._from_metadata(metadata)
+        }
         for key in ("title", "code", "description"):
             value = metadata.get(key)
             if isinstance(value, str):
