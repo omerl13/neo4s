@@ -41,12 +41,10 @@ class Neo4jCommand(GeneratingCommand):
                 raise ValueError(f"Error in query params dict: {e}")
 
         with driver.session(database=database) as session:
-            results = list(session.run(query, parameters=parameters))
-            if not results:
-                raise EmptyResultsExceptions("No results found")
+            results = session.run(query, parameters=parameters)
 
-        for record in results:
-            yield (record)
+            for record in results:
+                yield (record)
 
     def generate(self):
         results = self.__get_data(
