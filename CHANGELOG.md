@@ -1,5 +1,12 @@
-
 # Change Log
+
+## 1.2.2
+
+- Updated related packages
+
+## 1.2.1
+
+- Made results be consumed faster in splunk
 
 ## 1.2.0
 

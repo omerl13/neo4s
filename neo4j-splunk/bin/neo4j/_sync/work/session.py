@@ -1,8 +1,6 @@
 # Copyright (c) "Neo4j"
 # Neo4j Sweden AB [https://neo4j.com]
 #
-# This file is part of Neo4j.
-#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -20,18 +18,16 @@ from __future__ import annotations
 
 import asyncio
 import typing as t
-import warnings
 from logging import getLogger
 from random import random
-from time import perf_counter
+from time import monotonic
 
+from ..._api import TelemetryAPI
 from ..._async_compat import sleep
 from ..._async_compat.util import Util
 from ..._conf import SessionConfig
-from ..._meta import (
-    deprecated,
-    PreviewWarning,
-)
+from ..._meta import deprecated
+from ..._util import ContextBool
 from ..._work import Query
 from ...api import (
     Bookmarks,
@@ -46,6 +42,7 @@ from ...exceptions import (
     SessionExpired,
     TransactionError,
 )
+from .._debug import NonConcurrentMethodChecker
 from ..auth_management import AuthManagers
 from .result import Result
 from .transaction import (
@@ -64,7 +61,7 @@ if t.TYPE_CHECKING:
     _P = te.ParamSpec("_P")
 
 
-log = getLogger("neo4j")
+log = getLogger("neo4j.pool")
 
 
 class Session(Workspace):
@@ -91,8 +88,7 @@ class Session(Workspace):
     _connection: t.Optional[Bolt] = None
 
     # The current transaction instance, if any.
-    _transaction: t.Union[Transaction, ManagedTransaction, None] = \
-        None
+    _transaction: t.Union[Transaction, ManagedTransaction, None] = None
 
     # The current auto-commit transaction result, if any.
     _auto_result = None
@@ -100,21 +96,19 @@ class Session(Workspace):
     # The state this session is in.
     _state_failed = False
 
+    _config: SessionConfig
+    _bookmark_manager: t.Optional[Bookmarks]
+    _pipelined_begin: ContextBool
+
     def __init__(self, pool, session_config):
         assert isinstance(session_config, SessionConfig)
         if session_config.auth is not None:
-            with warnings.catch_warnings():
-                warnings.filterwarnings(
-                    "ignore", message=r".*\bAuth managers\b.*",
-                    category=PreviewWarning
-                )
-                session_config.auth = AuthManagers.static(
-                    session_config.auth
-                )
+            session_config.auth = AuthManagers.static(session_config.auth)
         super().__init__(pool, session_config)
         self._config = session_config
         self._initialize_bookmarks(session_config.bookmarks)
         self._bookmark_manager = session_config.bookmark_manager
+        self._pipelined_begin = ContextBool()
 
     def __enter__(self) -> Session:
         return self
@@ -132,9 +126,7 @@ class Session(Workspace):
         if access_mode is None:
             access_mode = self._config.default_access_mode
         try:
-            super()._connect(
-                access_mode, auth=self._config.auth, **acquire_kwargs
-            )
+            super()._connect(access_mode, auth=self._config.auth, **acquire_kwargs)
         except asyncio.CancelledError:
             self._handle_cancellation(message="_connect")
             raise
@@ -152,12 +144,10 @@ class Session(Workspace):
         connection = self._connection
         self._connection = None
         if connection:
-            log.debug("[#%04X]  _: <SESSION> %s cancellation clean-up",
-                      connection.local_port, message)
+            log.debug("[#%04X]  _: <SESSION> %s cancellation clean-up", connection.local_port, message)
             self._pool.kill_and_release(connection)
         else:
-            log.debug("[#0000]  _: <SESSION> %s cancellation clean-up",
-                      message)
+            log.debug("[#0000]  _: <SESSION> %s cancellation clean-up", message)
 
     def _result_closed(self):
         if self._auto_result:
@@ -184,6 +174,7 @@ class Session(Workspace):
         self._connect(READ_ACCESS, force_auth=True)
         self._disconnect()
 
+    @NonConcurrentMethodChecker.non_concurrent_method
     def close(self) -> None:
         """Close the session.
 
@@ -197,9 +188,7 @@ class Session(Workspace):
                 if self._state_failed is False:
                     try:
                         self._auto_result.consume()
-                        self._update_bookmark(
-                            self._auto_result._bookmark
-                        )
+                        self._update_bookmark(self._auto_result._bookmark)
                     except Exception as error:
                         # TODO: Investigate potential non graceful close states
                         self._auto_result = None
@@ -231,6 +220,7 @@ class Session(Workspace):
         self._closed = True
 
     if Util.is_async_code:
+
         def cancel(self) -> None:
             """Cancel this session.
 
@@ -253,11 +243,12 @@ class Session(Workspace):
             """
             self._handle_cancellation(message="manual cancel")
 
+    @NonConcurrentMethodChecker.non_concurrent_method
     def run(
         self,
         query: t.Union[te.LiteralString, Query],
         parameters: t.Optional[t.Dict[str, t.Any]] = None,
-        **kwargs: t.Any
+        **kwargs: t.Any,
     ) -> Result:
         """Run a Cypher query within an auto-commit transaction.
 
@@ -277,9 +268,12 @@ class Session(Workspace):
         For more usage details, see :meth:`.Transaction.run`.
 
         :param query: cypher query
+        :type query: typing.LiteralString | Query
         :param parameters: dictionary of parameters
+        :type parameters: typing.Dict[str, typing.Any] | None
         :param kwargs: additional keyword parameters.
             These take precedence over parameters passed as ``parameters``.
+        :type kwargs: typing.Any
 
         :returns: a new :class:`neo4j.Result` object
 
@@ -300,18 +294,21 @@ class Session(Workspace):
 
         if not self._connection:
             self._connect(self._config.default_access_mode)
+            assert self._connection is not None
         cx = self._connection
 
-        self._auto_result = Result(
-            cx, self._config.fetch_size, self._result_closed,
-            self._result_error
-        )
+        cx.telemetry(TelemetryAPI.AUTO_COMMIT)
+        self._auto_result = Result(cx, self._config.fetch_size, self._result_closed, self._result_error)
         bookmarks = self._get_bookmarks()
         parameters = dict(parameters or {}, **kwargs)
         self._auto_result._run(
-            query, parameters, self._config.database,
-            self._config.impersonated_user, self._config.default_access_mode,
-            bookmarks, self._config.notifications_min_severity,
+            query,
+            parameters,
+            self._config.database,
+            self._config.impersonated_user,
+            self._config.default_access_mode,
+            bookmarks,
+            self._config.notifications_min_severity,
             self._config.notifications_disabled_categories,
         )
 
@@ -321,6 +318,7 @@ class Session(Workspace):
         "`last_bookmark` has been deprecated in favor of `last_bookmarks`. "
         "This method can lead to unexpected behaviour."
     )
+    @NonConcurrentMethodChecker.non_concurrent_method
     def last_bookmark(self) -> t.Optional[str]:
         """Get the bookmark received following the last completed transaction.
 
@@ -350,6 +348,7 @@ class Session(Workspace):
             return self._bookmarks[-1]
         return None
 
+    @NonConcurrentMethodChecker.non_concurrent_method
     def last_bookmarks(self) -> Bookmarks:
         """Return most recent bookmarks of the session.
 
@@ -401,32 +400,45 @@ class Session(Workspace):
             self._disconnect()
 
     def _transaction_cancel_handler(self):
-        return self._handle_cancellation(
-            message="_transaction_cancel_handler"
-        )
+        return self._handle_cancellation(message="_transaction_cancel_handler")
 
     def _open_transaction(
-        self, *, tx_cls, access_mode, metadata=None, timeout=None
-    ):
+        self,
+        *,
+        tx_cls: t.Callable[..., t.Union[Transaction, ManagedTransaction]],
+        access_mode,
+        api: t.Optional[TelemetryAPI],
+        metadata=None,
+        timeout=None,
+        api_success_cb: t.Optional[t.Callable[[dict], None]] = None,
+    ) -> None:
         self._connect(access_mode=access_mode)
+        assert self._connection is not None
+        if api is not None:
+            self._connection.telemetry(api, on_success=api_success_cb)
         self._transaction = tx_cls(
-            self._connection, self._config.fetch_size,
+            self._connection,
+            self._config.fetch_size,
             self._transaction_closed_handler,
             self._transaction_error_handler,
-            self._transaction_cancel_handler
+            self._transaction_cancel_handler,
         )
         bookmarks = self._get_bookmarks()
         self._transaction._begin(
-            self._config.database, self._config.impersonated_user,
-            bookmarks, access_mode, metadata, timeout,
+            self._config.database,
+            self._config.impersonated_user,
+            bookmarks,
+            access_mode,
+            metadata,
+            timeout,
             self._config.notifications_min_severity,
             self._config.notifications_disabled_categories,
+            pipelined=self._pipelined_begin,
         )
 
+    @NonConcurrentMethodChecker.non_concurrent_method
     def begin_transaction(
-        self,
-        metadata: t.Optional[t.Dict[str, t.Any]] = None,
-        timeout: t.Optional[float] = None
+        self, metadata: t.Optional[t.Dict[str, t.Any]] = None, timeout: t.Optional[float] = None
     ) -> Transaction:
         """Begin a new unmanaged transaction.
 
@@ -451,10 +463,19 @@ class Session(Workspace):
 
         :param timeout:
             the transaction timeout in seconds.
-            Transactions that execute longer than the configured timeout will be terminated by the database.
-            This functionality allows to limit query/transaction execution time.
-            Specified timeout overrides the default timeout configured in the database using ``dbms.transaction.timeout`` setting.
-            Value should not represent a duration of zero or negative duration.
+            Transactions that execute longer than the configured timeout will
+            be terminated by the database.
+            This functionality allows user code to limit query/transaction
+            execution time.
+            The specified timeout overrides the default timeout configured in
+            the database using the ``db.transaction.timeout`` setting
+            (``dbms.transaction.timeout`` before Neo4j 5.0).
+            Values higher than ``db.transaction.timeout`` will be ignored and
+            will fall back to the default for server versions between 4.2 and
+            5.2 (inclusive).
+            The value should not represent a negative duration.
+            A ``0`` duration will make the transaction execute indefinitely.
+            :data:`None` will use the default timeout configured on the server.
 
         :returns: A new transaction instance.
 
@@ -468,21 +489,26 @@ class Session(Workspace):
             self._auto_result.consume()
 
         if self._transaction:
-            raise TransactionError(
-                self._transaction, "Explicit transaction already open"
-            )
+            raise TransactionError(self._transaction, "Explicit transaction already open")
 
         self._open_transaction(
             tx_cls=Transaction,
-            access_mode=self._config.default_access_mode, metadata=metadata,
-            timeout=timeout
+            api=TelemetryAPI.TX,
+            access_mode=self._config.default_access_mode,
+            metadata=metadata,
+            timeout=timeout,
         )
 
         return t.cast(Transaction, self._transaction)
 
     def _run_transaction(
-        self, access_mode, transaction_function, *args, **kwargs
-    ):
+        self,
+        access_mode: str,
+        api: TelemetryAPI,
+        transaction_function: t.Callable[te.Concatenate[ManagedTransaction, _P], t.Union[_R]],
+        args: _P.args,
+        kwargs: _P.kwargs,
+    ) -> _R:
         self._check_state()
         if not callable(transaction_function):
             raise TypeError("Unit of work is not callable")
@@ -493,29 +519,37 @@ class Session(Workspace):
         retry_delay = retry_delay_generator(
             self._config.initial_retry_delay,
             self._config.retry_delay_multiplier,
-            self._config.retry_delay_jitter_factor
+            self._config.retry_delay_jitter_factor,
         )
+
+        telemetry_sent = False
+
+        def api_success_cb(meta):
+            nonlocal telemetry_sent
+            telemetry_sent = True
 
         errors = []
 
-        t0 = -1  # Timer
+        t0: float = -1  # Timer
 
         while True:
             try:
                 self._open_transaction(
                     tx_cls=ManagedTransaction,
-                    access_mode=access_mode, metadata=metadata,
-                    timeout=timeout
+                    api=None if telemetry_sent else api,
+                    access_mode=access_mode,
+                    metadata=metadata,
+                    timeout=timeout,
+                    api_success_cb=api_success_cb,
                 )
+                assert isinstance(self._transaction, ManagedTransaction)
                 tx = self._transaction
                 try:
                     result = transaction_function(tx, *args, **kwargs)
                 except asyncio.CancelledError:
                     # if cancellation callback has not been called yet:
                     if self._transaction is not None:
-                        self._handle_cancellation(
-                            message="transaction function"
-                        )
+                        self._handle_cancellation(message="transaction function")
                     raise
                 except Exception:
                     tx._close()
@@ -531,13 +565,14 @@ class Session(Workspace):
                 return result
             if t0 == -1:
                 # The timer should be started after the first attempt
-                t0 = perf_counter()
-            t1 = perf_counter()
+                t0 = monotonic()
+            t1 = monotonic()
             if t1 - t0 > self._config.max_transaction_retry_time:
                 break
             delay = next(retry_delay)
-            log.warning("Transaction failed and will be retried in {}s ({})"
-                        "".format(delay, "; ".join(errors[-1].args)))
+            log.warning(
+                "Transaction failed and will be retried in {}s ({})" "".format(delay, "; ".join(errors[-1].args))
+            )
             try:
                 sleep(delay)
             except asyncio.CancelledError:
@@ -549,12 +584,12 @@ class Session(Workspace):
         else:
             raise ServiceUnavailable("Transaction failed")
 
+    @NonConcurrentMethodChecker.non_concurrent_method
     def execute_read(
         self,
-        transaction_function: t.Callable[
-            te.Concatenate[ManagedTransaction, _P], t.Union[_R]
-        ],
-        *args: _P.args, **kwargs: _P.kwargs
+        transaction_function: t.Callable[te.Concatenate[ManagedTransaction, _P], t.Union[_R]],
+        *args: _P.args,
+        **kwargs: _P.kwargs,
     ) -> _R:
         """Execute a unit of work in a managed read transaction.
 
@@ -603,27 +638,30 @@ class Session(Workspace):
             argument and does work with the transaction.
             ``transaction_function(tx, *args, **kwargs)`` where ``tx`` is a
             :class:`.ManagedTransaction`.
+        :type transaction_function:
+            typing.Callable[[ManagedTransaction, P], typing.Union[R]]
         :param args: additional arguments for the `transaction_function`
+        :type args: P
         :param kwargs: key word arguments for the `transaction_function`
+        :type kwargs: P
 
         :returns: whatever the given `transaction_function` returns
+        :rtype: R
 
         :raises SessionError: if the session has been closed.
 
         .. versionadded:: 5.0
         """
-        return self._run_transaction(
-            READ_ACCESS, transaction_function, *args, **kwargs
-        )
+        return self._run_transaction(READ_ACCESS, TelemetryAPI.TX_FUNC, transaction_function, args, kwargs)
 
     # TODO: 6.0 - Remove this method
     @deprecated("read_transaction has been renamed to execute_read")
+    @NonConcurrentMethodChecker.non_concurrent_method
     def read_transaction(
         self,
-        transaction_function: t.Callable[
-            te.Concatenate[ManagedTransaction, _P], t.Union[_R]
-        ],
-        *args: _P.args, **kwargs: _P.kwargs
+        transaction_function: t.Callable[te.Concatenate[ManagedTransaction, _P], t.Union[_R]],
+        *args: _P.args,
+        **kwargs: _P.kwargs,
     ) -> _R:
         """Execute a unit of work in a managed read transaction.
 
@@ -635,26 +673,29 @@ class Session(Workspace):
             argument and does work with the transaction.
             ``transaction_function(tx, *args, **kwargs)`` where ``tx`` is a
             :class:`.ManagedTransaction`.
+        :type transaction_function:
+            typing.Callable[[ManagedTransaction, P], typing.Union[R]]
         :param args: additional arguments for the `transaction_function`
+        :type args: P
         :param kwargs: key word arguments for the `transaction_function`
+        :type kwargs: P
 
         :returns: a result as returned by the given unit of work
+        :rtype: R
 
         :raises SessionError: if the session has been closed.
 
         .. deprecated:: 5.0
             Method was renamed to :meth:`.execute_read`.
         """
-        return self._run_transaction(
-            READ_ACCESS, transaction_function, *args, **kwargs
-        )
+        return self._run_transaction(READ_ACCESS, TelemetryAPI.TX_FUNC, transaction_function, args, kwargs)
 
+    @NonConcurrentMethodChecker.non_concurrent_method
     def execute_write(
         self,
-        transaction_function: t.Callable[
-            te.Concatenate[ManagedTransaction, _P], t.Union[_R]
-        ],
-        *args: _P.args,  **kwargs: _P.kwargs
+        transaction_function: t.Callable[te.Concatenate[ManagedTransaction, _P], t.Union[_R]],
+        *args: _P.args,
+        **kwargs: _P.kwargs,
     ) -> _R:
         """Execute a unit of work in a managed write transaction.
 
@@ -685,27 +726,30 @@ class Session(Workspace):
             argument and does work with the transaction.
             ``transaction_function(tx, *args, **kwargs)`` where ``tx`` is a
             :class:`.ManagedTransaction`.
+        :type transaction_function:
+            typing.Callable[[ManagedTransaction, P], typing.Union[R]]
         :param args: additional arguments for the `transaction_function`
+        :type args: P
         :param kwargs: key word arguments for the `transaction_function`
+        :type kwargs: P
 
         :returns: a result as returned by the given unit of work
+        :rtype: R
 
         :raises SessionError: if the session has been closed.
 
         .. versionadded:: 5.0
         """
-        return self._run_transaction(
-            WRITE_ACCESS, transaction_function, *args, **kwargs
-        )
+        return self._run_transaction(WRITE_ACCESS, TelemetryAPI.TX_FUNC, transaction_function, args, kwargs)
 
     # TODO: 6.0 - Remove this method
     @deprecated("write_transaction has been renamed to execute_write")
+    @NonConcurrentMethodChecker.non_concurrent_method
     def write_transaction(
         self,
-        transaction_function: t.Callable[
-            te.Concatenate[ManagedTransaction, _P], t.Union[_R]
-        ],
-        *args: _P.args,  **kwargs: _P.kwargs
+        transaction_function: t.Callable[te.Concatenate[ManagedTransaction, _P], t.Union[_R]],
+        *args: _P.args,
+        **kwargs: _P.kwargs,
     ) -> _R:
         """Execute a unit of work in a managed write transaction.
 
@@ -717,19 +761,22 @@ class Session(Workspace):
             argument and does work with the transaction.
             ``transaction_function(tx, *args, **kwargs)`` where ``tx`` is a
             :class:`.ManagedTransaction`.
+        :type transaction_function:
+            typing.Callable[[ManagedTransaction, P], typing.Union[R]]
         :param args: additional arguments for the `transaction_function`
+        :type args: P
         :param kwargs: key word arguments for the `transaction_function`
+        :type kwargs: P
 
         :returns: a result as returned by the given unit of work
+        :rtype: R
 
         :raises SessionError: if the session has been closed.
 
         .. deprecated:: 5.0
             Method was renamed to :meth:`.execute_write`.
         """
-        return self._run_transaction(
-            WRITE_ACCESS, transaction_function, *args, **kwargs
-        )
+        return self._run_transaction(WRITE_ACCESS, TelemetryAPI.TX_FUNC, transaction_function, args, kwargs)
 
 
 def retry_delay_generator(initial_delay, multiplier, jitter_factor):

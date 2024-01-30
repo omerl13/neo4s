@@ -1,8 +1,6 @@
 # Copyright (c) "Neo4j"
 # Neo4j Sweden AB [https://neo4j.com]
 #
-# This file is part of Neo4j.
-#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -16,25 +14,20 @@
 # limitations under the License.
 
 
-# from __future__ import annotations
-# work around for https://github.com/sphinx-doc/sphinx/pull/10880
-# make sure TAuth is resolved in the docs, else they're pretty useless
-
+from __future__ import annotations
 
 import abc
 import time
 import typing as t
-import warnings
 from dataclasses import dataclass
 
-from ._meta import (
-    preview,
-    PreviewWarning,
-)
-from .api import _TAuth
+from .exceptions import Neo4jError
 
 
-@preview("Auth managers are a preview feature.")
+if t.TYPE_CHECKING:
+    from .api import _TAuth
+
+
 @dataclass
 class ExpiringAuth:
     """Represents potentially expiring authentication information.
@@ -49,21 +42,27 @@ class ExpiringAuth:
         If :data:`None`, the authentication information is considered to not
         expire until the server explicitly indicates so.
 
-    **This is a preview** (see :ref:`filter-warnings-ref`).
-    It might be changed without following the deprecation policy.
-    See also https://github.com/neo4j/neo4j-python-driver/wiki/preview-features
-
     .. seealso::
         :meth:`.AuthManagers.expiration_based`,
         :meth:`.AsyncAuthManagers.expiration_based`
 
     .. versionadded:: 5.8
+
+    .. versionchanged:: 5.9
+
+        * Removed parameter and attribute ``expires_in`` (relative expiration
+          time). Replaced with ``expires_at`` (absolute expiration time).
+        * :meth:`.expires_in` can be used to create an :class:`.ExpiringAuth`
+          with a relative expiration time.
+
+    .. versionchanged:: 5.14 Stabilized from preview.
     """
-    auth: "_TAuth"
+
+    auth: _TAuth
     expires_at: t.Optional[float] = None
 
-    def expires_in(self, seconds: float) -> "ExpiringAuth":
-        """Return a copy of this object with a new expiration time.
+    def expires_in(self, seconds: float) -> ExpiringAuth:
+        """Return a (flat) copy of this object with a new expiration time.
 
         This is a convenience method for creating an :class:`.ExpiringAuth`
         for a relative expiration time ("expires in" instead of "expires at").
@@ -79,12 +78,10 @@ class ExpiringAuth:
         :param seconds:
             The number of seconds from now until the authentication information
             expires.
+
+        .. versionadded:: 5.9
         """
-        with warnings.catch_warnings():
-            warnings.filterwarnings("ignore",
-                                    message=r"^Auth managers\b.*",
-                                    category=PreviewWarning)
-            return ExpiringAuth(self.auth, time.time() + seconds)
+        return ExpiringAuth(self.auth, time.time() + seconds)
 
 
 def expiring_auth_has_expired(auth: ExpiringAuth) -> bool:
@@ -110,14 +107,19 @@ class AuthManager(metaclass=abc.ABCMeta):
 
         The token returned must always belong to the same identity.
         Switching identities using the `AuthManager` is undefined behavior.
-
-    **This is a preview** (see :ref:`filter-warnings-ref`).
-    It might be changed without following the deprecation policy.
-    See also https://github.com/neo4j/neo4j-python-driver/wiki/preview-features
+        You may use session-level authentication for such use-cases
+        :ref:`session-auth-ref`.
 
     .. seealso:: :class:`.AuthManagers`
 
     .. versionadded:: 5.8
+
+    .. versionchanged:: 5.12
+        ``on_auth_expired`` was removed from the interface and replaced by
+        :meth:`handle_security_exception`. The new method is called when the
+        server returns any `Neo.ClientError.Security.*` error. It's signature
+        differs in that it additionally receives the error returned by the
+        server and returns a boolean indicating whether the error was handled.
     """
 
     @abc.abstractmethod
@@ -132,19 +134,31 @@ class AuthManager(metaclass=abc.ABCMeta):
             The method must only ever return auth information belonging to the
             same identity.
             Switching identities using the `AuthManager` is undefined behavior.
+            You may use session-level authentication for such use-cases
+            :ref:`session-auth-ref`.
         """
         ...
 
     @abc.abstractmethod
-    def on_auth_expired(self, auth: _TAuth) -> None:
-        """Handle the server indicating expired authentication information.
+    def handle_security_exception(self, auth: _TAuth, error: Neo4jError) -> bool:
+        """Handle the server indicating authentication failure.
 
-        The driver will call this method when the server indicates that the
-        provided authentication information is no longer valid.
+        The driver will call this method when the server returns any
+        `Neo.ClientError.Security.*` error. The error will then be processed
+        further as usual.
 
         :param auth:
-            The authentication information that the server flagged as no longer
-            valid.
+            The authentication information that was used when the server
+            returned the error.
+        :param error:
+            The error returned by the server.
+
+        :returns:
+            Whether the error was handled (:const:`True`), in which case the
+            driver will mark the error as retryable
+            (see :meth:`.Neo4jError.is_retryable`).
+
+        .. versionadded:: 5.12
         """
         ...
 
@@ -152,13 +166,13 @@ class AuthManager(metaclass=abc.ABCMeta):
 class AsyncAuthManager(metaclass=abc.ABCMeta):
     """Async version of :class:`.AuthManager`.
 
-    **This is a preview** (see :ref:`filter-warnings-ref`).
-    It might be changed without following the deprecation policy.
-    See also https://github.com/neo4j/neo4j-python-driver/wiki/preview-features
-
     .. seealso:: :class:`.AuthManager`
 
     .. versionadded:: 5.8
+
+    .. versionchanged:: 5.12
+        ``on_auth_expired`` was removed from the interface and replaced by
+         :meth:`handle_security_exception`. See :class:`.AuthManager`.
     """
 
     @abc.abstractmethod
@@ -170,7 +184,7 @@ class AsyncAuthManager(metaclass=abc.ABCMeta):
         ...
 
     @abc.abstractmethod
-    async def on_auth_expired(self, auth: _TAuth) -> None:
+    async def handle_security_exception(self, auth: _TAuth, error: Neo4jError) -> bool:
         """Async version of :meth:`.AuthManager.on_auth_expired`.
 
         .. seealso:: :meth:`.AuthManager.on_auth_expired`

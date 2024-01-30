@@ -27,6 +27,7 @@ If you want a friendlier interface to the Splunk REST API, use the
 from __future__ import absolute_import
 
 import io
+import json
 import logging
 import socket
 import ssl
@@ -52,12 +53,24 @@ except ImportError as e:
 
 logger = logging.getLogger(__name__)
 
-__all__ = [
-    "AuthenticationError",
-    "connect",
-    "Context",
-    "handler",
-    "HTTPError"
+__all__ = ["AuthenticationError", "connect", "Context", "handler", "HTTPError"]
+
+SENSITIVE_KEYS = [
+    "Authorization",
+    "Cookie",
+    "action.email.auth_password",
+    "auth",
+    "auth_password",
+    "clear_password",
+    "clientId",
+    "crc-salt",
+    "encr_password",
+    "oldpassword",
+    "passAuth",
+    "password",
+    "session",
+    "suppressionKey",
+    "token",
 ]
 
 # If you change these, update the docstring
@@ -66,15 +79,39 @@ DEFAULT_HOST = "localhost"
 DEFAULT_PORT = "8089"
 DEFAULT_SCHEME = "https"
 
+
 def _log_duration(f):
     @wraps(f)
     def new_f(*args, **kwargs):
         start_time = datetime.now()
         val = f(*args, **kwargs)
         end_time = datetime.now()
-        logger.debug("Operation took %s", end_time-start_time)
+        logger.debug("Operation took %s", end_time - start_time)
         return val
+
     return new_f
+
+
+def mask_sensitive_data(data):
+    """
+    Masked sensitive fields data for logging purpose
+    """
+    if not isinstance(data, dict):
+        try:
+            data = json.loads(data)
+        except Exception as ex:
+            return data
+
+    # json.loads will return "123"(str) as 123(int), so return the data if it's not 'dict' type
+    if not isinstance(data, dict):
+        return data
+    mdata = {}
+    for k, v in data.items():
+        if k in SENSITIVE_KEYS:
+            mdata[k] = "******"
+        else:
+            mdata[k] = mask_sensitive_data(v)
+    return mdata
 
 
 def _parse_cookies(cookie_str, dictionary):
@@ -117,6 +154,7 @@ def _make_cookie_header(cookies):
     """
     return "; ".join("%s=%s" % (key, value) for key, value in cookies)
 
+
 # Singleton values to eschew None
 class _NoAuthenticationToken(object):
     """The value stored in a :class:`Context` or :class:`splunklib.client.Service`
@@ -130,6 +168,7 @@ class _NoAuthenticationToken(object):
     Likewise, after a ``Context`` or ``Service`` object has been logged out, the
     token is set to this value again.
     """
+
     pass
 
 
@@ -166,7 +205,8 @@ class UrlEncoded(str):
         UrlEncoded('ab c') + 'de f' == UrlEncoded('ab cde f')
         'ab c' + UrlEncoded('de f') == UrlEncoded('ab cde f')
     """
-    def __new__(self, val='', skip_encode=False, encode_slash=False):
+
+    def __new__(self, val="", skip_encode=False, encode_slash=False):
         if isinstance(val, UrlEncoded):
             # Don't urllib.quote something already URL encoded.
             return val
@@ -209,8 +249,10 @@ class UrlEncoded(str):
         ``TypeError``.
         """
         raise TypeError("Cannot interpolate into a UrlEncoded object.")
+
     def __repr__(self):
         return "UrlEncoded(%s)" % repr(urllib.parse.unquote(str(self)))
+
 
 @contextmanager
 def _handle_auth_error(msg):
@@ -237,6 +279,7 @@ def _handle_auth_error(msg):
             raise AuthenticationError(msg, he)
         else:
             raise
+
 
 def _authentication(request_fun):
     """Decorator to handle autologin and authentication errors.
@@ -272,10 +315,10 @@ def _authentication(request_fun):
             return 42
         print _authentication(f)
     """
+
     @wraps(request_fun)
     def wrapper(self, *args, **kwargs):
-        if self.token is _NoAuthenticationToken and \
-                not self.has_cookies():
+        if self.token is _NoAuthenticationToken and not self.has_cookies():
             # Not yet logged in.
             if self.autologin and self.username and self.password:
                 # This will throw an uncaught
@@ -298,11 +341,11 @@ def _authentication(request_fun):
                 with _handle_auth_error("Autologin failed."):
                     self.login()
                 with _handle_auth_error(
-                        "Authentication Failed! If session token is used, it seems to have been expired."):
+                    "Authentication Failed! If session token is used, it seems to have been expired."
+                ):
                     return request_fun(self, *args, **kwargs)
             elif he.status == 401 and not self.autologin:
-                raise AuthenticationError(
-                    "Request failed: Session is not logged in.", he)
+                raise AuthenticationError("Request failed: Session is not logged in.", he)
             else:
                 raise
 
@@ -348,11 +391,12 @@ def _authority(scheme=DEFAULT_SCHEME, host=DEFAULT_HOST, port=DEFAULT_PORT):
 
     """
     # check if host is an IPv6 address and not enclosed in [ ]
-    if ':' in host and not (host.startswith('[') and host.endswith(']')):
+    if ":" in host and not (host.startswith("[") and host.endswith("]")):
         # IPv6 addresses must be enclosed in [ ] in order to be well
         # formed.
-        host = '[' + host + ']'
+        host = "[" + host + "]"
     return UrlEncoded("%s://%s:%s" % (scheme, host, port), skip_encode=True)
+
 
 # kwargs: sharing, owner, app
 def namespace(sharing=None, owner=None, app=None, **kwargs):
@@ -407,11 +451,11 @@ def namespace(sharing=None, owner=None, app=None, **kwargs):
         n = binding.namespace(sharing="global", app="search")
     """
     if sharing in ["system"]:
-        return record({'sharing': sharing, 'owner': "nobody", 'app': "system" })
+        return record({"sharing": sharing, "owner": "nobody", "app": "system"})
     if sharing in ["global", "app"]:
-        return record({'sharing': sharing, 'owner': "nobody", 'app': app})
+        return record({"sharing": sharing, "owner": "nobody", "app": app})
     if sharing in ["user", None]:
-        return record({'sharing': sharing, 'owner': owner, 'app': app})
+        return record({"sharing": sharing, "owner": owner, "app": app})
     raise ValueError("Invalid value for argument: 'sharing'")
 
 
@@ -477,12 +521,19 @@ class Context(object):
         # Or if you already have a valid cookie
         c = binding.Context(cookie="splunkd_8089=...")
     """
+
     def __init__(self, handler=None, **kwargs):
-        self.http = HttpLib(handler, kwargs.get("verify", False), key_file=kwargs.get("key_file"),
-                            cert_file=kwargs.get("cert_file"),  context=kwargs.get("context"), # Default to False for backward compat
-                            retries=kwargs.get("retries", 0), retryDelay=kwargs.get("retryDelay", 10))
+        self.http = HttpLib(
+            handler,
+            kwargs.get("verify", False),
+            key_file=kwargs.get("key_file"),
+            cert_file=kwargs.get("cert_file"),
+            context=kwargs.get("context"),  # Default to False for backward compat
+            retries=kwargs.get("retries", 0),
+            retryDelay=kwargs.get("retryDelay", 10),
+        )
         self.token = kwargs.get("token", _NoAuthenticationToken)
-        if self.token is None: # In case someone explicitly passes token=None
+        if self.token is None:  # In case someone explicitly passes token=None
             self.token = _NoAuthenticationToken
         self.scheme = kwargs.get("scheme", DEFAULT_SCHEME)
         self.host = kwargs.get("host", DEFAULT_HOST)
@@ -497,7 +548,7 @@ class Context(object):
         self.additional_headers = kwargs.get("headers", [])
 
         # Store any cookies in the self.http._cookies dict
-        if "cookie" in kwargs and kwargs['cookie'] not in [None, _NoAuthenticationToken]:
+        if "cookie" in kwargs and kwargs["cookie"] not in [None, _NoAuthenticationToken]:
             _parse_cookies(kwargs["cookie"], self.http._cookies)
 
     def get_cookies(self):
@@ -532,17 +583,17 @@ class Context(object):
         if self.has_cookies():
             return [("Cookie", _make_cookie_header(list(self.get_cookies().items())))]
         elif self.basic and (self.username and self.password):
-            token = 'Basic %s' % b64encode(("%s:%s" % (self.username, self.password)).encode('utf-8')).decode('ascii')
+            token = "Basic %s" % b64encode(("%s:%s" % (self.username, self.password)).encode("utf-8")).decode("ascii")
         elif self.bearerToken:
-            token = 'Bearer %s' % self.bearerToken
+            token = "Bearer %s" % self.bearerToken
         elif self.token is _NoAuthenticationToken:
             token = []
         else:
             # Ensure the token is properly formatted
-            if self.token.startswith('Splunk '):
+            if self.token.startswith("Splunk "):
                 token = self.token
             else:
-                token = 'Splunk %s' % self.token
+                token = "Splunk %s" % self.token
         if token:
             header.append(("Authorization", token))
         if self.get_cookies():
@@ -629,9 +680,8 @@ class Context(object):
             c.logout()
             c.delete('apps/local') # raises AuthenticationError
         """
-        path = self.authority + self._abspath(path_segment, owner=owner,
-                                              app=app, sharing=sharing)
-        logger.debug("DELETE request to %s (body: %s)", path, repr(query))
+        path = self.authority + self._abspath(path_segment, owner=owner, app=app, sharing=sharing)
+        logger.debug("DELETE request to %s (body: %s)", path, mask_sensitive_data(query))
         response = self.http.delete(path, self._auth_headers, **query)
         return response
 
@@ -692,9 +742,8 @@ class Context(object):
         if headers is None:
             headers = []
 
-        path = self.authority + self._abspath(path_segment, owner=owner,
-                                              app=app, sharing=sharing)
-        logger.debug("GET request to %s (body: %s)", path, repr(query))
+        path = self.authority + self._abspath(path_segment, owner=owner, app=app, sharing=sharing)
+        logger.debug("GET request to %s (body: %s)", path, mask_sensitive_data(query))
         all_headers = headers + self.additional_headers + self._auth_headers
         response = self.http.get(path, all_headers, **query)
         return response
@@ -773,20 +822,14 @@ class Context(object):
 
         path = self.authority + self._abspath(path_segment, owner=owner, app=app, sharing=sharing)
 
-        # To avoid writing sensitive data in debug logs
-        endpoint_having_sensitive_data = ["/storage/passwords"]
-        if any(endpoint in path for endpoint in endpoint_having_sensitive_data):
-            logger.debug("POST request to %s ", path)
-        else:
-            logger.debug("POST request to %s (body: %s)", path, repr(query))
+        logger.debug("POST request to %s (body: %s)", path, mask_sensitive_data(query))
         all_headers = headers + self.additional_headers + self._auth_headers
         response = self.http.post(path, all_headers, **query)
         return response
 
     @_authentication
     @_log_duration
-    def request(self, path_segment, method="GET", headers=None, body={},
-                owner=None, app=None, sharing=None):
+    def request(self, path_segment, method="GET", headers=None, body={}, owner=None, app=None, sharing=None):
         """Issues an arbitrary HTTP request to the REST path segment.
 
         This method is named to match ``httplib.request``. This function
@@ -839,28 +882,26 @@ class Context(object):
         if headers is None:
             headers = []
 
-        path = self.authority \
-            + self._abspath(path_segment, owner=owner,
-                            app=app, sharing=sharing)
+        path = self.authority + self._abspath(path_segment, owner=owner, app=app, sharing=sharing)
 
         all_headers = headers + self.additional_headers + self._auth_headers
-        logger.debug("%s request to %s (headers: %s, body: %s)",
-                      method, path, str(all_headers), repr(body))
-
+        logger.debug(
+            "%s request to %s (headers: %s, body: %s)",
+            method,
+            path,
+            str(mask_sensitive_data(dict(all_headers))),
+            mask_sensitive_data(body),
+        )
         if body:
             body = _encode(**body)
 
             if method == "GET":
-                path = path + UrlEncoded('?' + body, skip_encode=True)
-                message = {'method': method,
-                           'headers': all_headers}
+                path = path + UrlEncoded("?" + body, skip_encode=True)
+                message = {"method": method, "headers": all_headers}
             else:
-                message = {'method': method,
-                           'headers': all_headers,
-                           'body': body}
+                message = {"method": method, "headers": all_headers, "body": body}
         else:
-            message = {'method': method,
-                       'headers': all_headers}
+            message = {"method": method, "headers": all_headers}
 
         response = self.http.request(path, message)
 
@@ -886,15 +927,13 @@ class Context(object):
             # Then issue requests...
         """
 
-        if self.has_cookies() and \
-                (not self.username and not self.password):
+        if self.has_cookies() and (not self.username and not self.password):
             # If we were passed session cookie(s), but no username or
             # password, then login is a nop, since we're automatically
             # logged in.
             return
 
-        if self.token is not _NoAuthenticationToken and \
-                (not self.username and not self.password):
+        if self.token is not _NoAuthenticationToken and (not self.username and not self.password):
             # If we were passed a session token, but no username or
             # password, then login is a nop, since we're automatically
             # logged in.
@@ -916,7 +955,8 @@ class Context(object):
                 username=self.username,
                 password=self.password,
                 headers=self.additional_headers,
-                cookie="1") # In Splunk 6.2+, passing "cookie=1" will return the "set-cookie" header
+                cookie="1",
+            )  # In Splunk 6.2+, passing "cookie=1" will return the "set-cookie" header
 
             body = response.body.read()
             session = XML(body).findtext("./sessionKey")
@@ -934,8 +974,7 @@ class Context(object):
         self.http._cookies = {}
         return self
 
-    def _abspath(self, path_segment,
-                owner=None, app=None, sharing=None):
+    def _abspath(self, path_segment, owner=None, app=None, sharing=None):
         """Qualifies *path_segment* into an absolute path for a URL.
 
         If *path_segment* is already absolute, returns it unchanged.
@@ -972,7 +1011,7 @@ class Context(object):
         skip_encode = isinstance(path_segment, UrlEncoded)
         # If path_segment is absolute, escape all forbidden characters
         # in it and return it.
-        if path_segment.startswith('/'):
+        if path_segment.startswith("/"):
             return UrlEncoded(path_segment, skip_encode=skip_encode)
 
         # path_segment is relative, so we need a namespace to build an
@@ -991,8 +1030,7 @@ class Context(object):
 
         oname = "nobody" if ns.owner is None else ns.owner
         aname = "system" if ns.app is None else ns.app
-        path = UrlEncoded("/servicesNS/%s/%s/%s" % (oname, aname, path_segment),
-                          skip_encode=skip_encode)
+        path = UrlEncoded("/servicesNS/%s/%s/%s" % (oname, aname, path_segment), skip_encode=skip_encode)
         return path
 
 
@@ -1043,11 +1081,13 @@ def connect(**kwargs):
     c.login()
     return c
 
+
 # Note: the error response schema supports multiple messages but we only
 # return the first, although we do return the body so that an exception
 # handler that wants to read multiple messages can do so.
 class HTTPError(Exception):
     """This exception is raised for HTTP responses that return an error."""
+
     def __init__(self, response, _message=None):
         status = response.status
         reason = response.reason
@@ -1056,14 +1096,14 @@ class HTTPError(Exception):
             detail = XML(body).findtext("./messages/msg")
         except ParseError as err:
             detail = body
-        message = "HTTP %d %s%s" % (
-            status, reason, "" if detail is None else " -- %s" % detail)
+        message = "HTTP %d %s%s" % (status, reason, "" if detail is None else " -- %s" % detail)
         Exception.__init__(self, _message or message)
         self.status = status
         self.reason = reason
         self.headers = response.headers
         self.body = body
         self._response = response
+
 
 class AuthenticationError(HTTPError):
     """Raised when a login request to Splunk fails.
@@ -1072,12 +1112,14 @@ class AuthenticationError(HTTPError):
     in a call to :meth:`Context.login` or :meth:`splunklib.client.Service.login`,
     this exception is raised.
     """
+
     def __init__(self, message, cause):
         # Put the body back in the response so that HTTPError's constructor can
         # read it again.
         cause._response.body = BytesIO(cause.body)
 
         HTTPError.__init__(self, cause._response, message)
+
 
 #
 # The HTTP interface used by the Splunk binding layer abstracts the underlying
@@ -1100,6 +1142,7 @@ class AuthenticationError(HTTPError):
 #   }
 #
 
+
 # Encode the given kwargs as a query string. This wrapper will also _encode
 # a list value as a sequence of assignments to the corresponding arg name,
 # for example an argument such as 'foo=[1,2,3]' will be encoded as
@@ -1113,16 +1156,20 @@ def _encode(**kwargs):
             items.append((key, value))
     return urllib.parse.urlencode(items)
 
+
 # Crack the given url into (scheme, host, port, path)
 def _spliturl(url):
     parsed_url = urllib.parse.urlparse(url)
     host = parsed_url.hostname
     port = parsed_url.port
-    path = '?'.join((parsed_url.path, parsed_url.query)) if parsed_url.query else parsed_url.path
+    path = "?".join((parsed_url.path, parsed_url.query)) if parsed_url.query else parsed_url.path
     # Strip brackets if its an IPv6 address
-    if host.startswith('[') and host.endswith(']'): host = host[1:-1]
-    if port is None: port = DEFAULT_PORT
+    if host.startswith("[") and host.endswith("]"):
+        host = host[1:-1]
+    if port is None:
+        port = DEFAULT_PORT
     return parsed_url.scheme, host, port, path
+
 
 # Given an HTTP request handler, this wrapper objects provides a related
 # family of convenience methods built using that handler.
@@ -1168,7 +1215,10 @@ class HttpLib(object):
 
     If using the default handler, SSL verification can be disabled by passing verify=False.
     """
-    def __init__(self, custom_handler=None, verify=False, key_file=None, cert_file=None, context=None, retries=0, retryDelay=10):
+
+    def __init__(
+        self, custom_handler=None, verify=False, key_file=None, cert_file=None, context=None, retries=0, retryDelay=10
+    ):
         if custom_handler is None:
             self.handler = handler(verify=verify, key_file=key_file, cert_file=cert_file, context=context)
         else:
@@ -1194,15 +1244,16 @@ class HttpLib(object):
             its structure).
         :rtype: ``dict``
         """
-        if headers is None: headers = []
+        if headers is None:
+            headers = []
         if kwargs:
             # url is already a UrlEncoded. We have to manually declare
             # the query to be encoded or it will get automatically URL
             # encoded by being appended to url.
-            url = url + UrlEncoded('?' + _encode(**kwargs), skip_encode=True)
+            url = url + UrlEncoded("?" + _encode(**kwargs), skip_encode=True)
         message = {
-            'method': "DELETE",
-            'headers': headers,
+            "method": "DELETE",
+            "headers": headers,
         }
         return self.request(url, message)
 
@@ -1223,13 +1274,14 @@ class HttpLib(object):
             its structure).
         :rtype: ``dict``
         """
-        if headers is None: headers = []
+        if headers is None:
+            headers = []
         if kwargs:
             # url is already a UrlEncoded. We have to manually declare
             # the query to be encoded or it will get automatically URL
             # encoded by being appended to url.
-            url = url + UrlEncoded('?' + _encode(**kwargs), skip_encode=True)
-        return self.request(url, { 'method': "GET", 'headers': headers })
+            url = url + UrlEncoded("?" + _encode(**kwargs), skip_encode=True)
+        return self.request(url, {"method": "GET", "headers": headers})
 
     def post(self, url, headers=None, **kwargs):
         """Sends a POST request to a URL.
@@ -1249,29 +1301,26 @@ class HttpLib(object):
             its structure).
         :rtype: ``dict``
         """
-        if headers is None: headers = []
+        if headers is None:
+            headers = []
 
         # We handle GET-style arguments and an unstructured body. This is here
         # to support the receivers/stream endpoint.
-        if 'body' in kwargs:
+        if "body" in kwargs:
             # We only use application/x-www-form-urlencoded if there is no other
             # Content-Type header present. This can happen in cases where we
             # send requests as application/json, e.g. for KV Store.
             if len([x for x in headers if x[0].lower() == "content-type"]) == 0:
                 headers.append(("Content-Type", "application/x-www-form-urlencoded"))
 
-            body = kwargs.pop('body')
+            body = kwargs.pop("body")
             if isinstance(body, dict):
-                body = _encode(**body).encode('utf-8')
+                body = _encode(**body).encode("utf-8")
             if len(kwargs) > 0:
-                url = url + UrlEncoded('?' + _encode(**kwargs), skip_encode=True)
+                url = url + UrlEncoded("?" + _encode(**kwargs), skip_encode=True)
         else:
-            body = _encode(**kwargs).encode('utf-8')
-        message = {
-            'method': "POST",
-            'headers': headers,
-            'body': body
-        }
+            body = _encode(**kwargs).encode("utf-8")
+        message = {"method": "POST", "headers": headers, "body": body}
         return self.request(url, message)
 
     def request(self, url, message, **kwargs):
@@ -1325,19 +1374,20 @@ class ResponseReader(io.RawIOBase):
     types of HTTP libraries used with this SDK. This class also provides a
     preview of the stream and a few useful predicates.
     """
+
     # For testing, you can use a StringIO as the argument to
     # ``ResponseReader`` instead of an ``httplib.HTTPResponse``. It
     # will work equally well.
     def __init__(self, response, connection=None):
         self._response = response
         self._connection = connection
-        self._buffer = b''
+        self._buffer = b""
 
     def __str__(self):
         if six.PY2:
             return self.read()
         else:
-            return str(self.read(), 'UTF-8')
+            return str(self.read(), "UTF-8")
 
     @property
     def empty(self):
@@ -1363,7 +1413,7 @@ class ResponseReader(io.RawIOBase):
             self._connection.close()
         self._response.close()
 
-    def read(self, size = None):
+    def read(self, size=None):
         """Reads a given number of characters from the response.
 
         :param size: The number of characters to read, or "None" to read the
@@ -1372,18 +1422,18 @@ class ResponseReader(io.RawIOBase):
 
         """
         r = self._buffer
-        self._buffer = b''
+        self._buffer = b""
         if size is not None:
             size -= len(r)
         r = r + self._response.read(size)
         return r
 
     def readable(self):
-        """ Indicates that the response reader is readable."""
+        """Indicates that the response reader is readable."""
         return True
 
     def readinto(self, byte_array):
-        """ Read data into a byte array, upto the size of the byte array.
+        """Read data into a byte array, upto the size of the byte array.
 
         :param byte_array: A byte array/memory view to pour bytes into.
         :type byte_array: ``bytearray`` or ``memoryview``
@@ -1414,18 +1464,21 @@ def handler(key_file=None, cert_file=None, timeout=None, verify=False, context=N
 
     def connect(scheme, host, port):
         kwargs = {}
-        if timeout is not None: kwargs['timeout'] = timeout
+        if timeout is not None:
+            kwargs["timeout"] = timeout
         if scheme == "http":
             return six.moves.http_client.HTTPConnection(host, port, **kwargs)
         if scheme == "https":
-            if key_file is not None: kwargs['key_file'] = key_file
-            if cert_file is not None: kwargs['cert_file'] = cert_file
+            if key_file is not None:
+                kwargs["key_file"] = key_file
+            if cert_file is not None:
+                kwargs["cert_file"] = cert_file
 
             if not verify:
-                kwargs['context'] = ssl._create_unverified_context()
+                kwargs["context"] = ssl._create_unverified_context()
             elif context:
                 # verify is True in elif branch and context is not None
-                kwargs['context'] = context
+                kwargs["context"] = context
 
             return six.moves.http_client.HTTPSConnection(host, port, **kwargs)
         raise ValueError("unsupported scheme: %s" % scheme)
@@ -1439,7 +1492,7 @@ def handler(key_file=None, cert_file=None, timeout=None, verify=False, context=N
             "User-Agent": "splunk-sdk-python/%s" % __version__,
             "Accept": "*/*",
             "Connection": "Close",
-        } # defaults
+        }  # defaults
         for key, value in message["headers"]:
             head[key] = value
         method = message.get("method", "GET")

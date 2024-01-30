@@ -1,8 +1,6 @@
 # Copyright (c) "Neo4j"
 # Neo4j Sweden AB [https://neo4j.com]
 #
-# This file is part of Neo4j.
-#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -20,6 +18,7 @@ from __future__ import annotations
 
 import asyncio
 import inspect
+import traceback
 import typing as t
 from functools import wraps
 
@@ -53,8 +52,7 @@ class AsyncUtil:
 
     @staticmethod
     @t.overload
-    async def callback(cb: None, *args: object, **kwargs: object) -> None:
-        ...
+    async def callback(cb: None, *args: object, **kwargs: object) -> None: ...
 
     @staticmethod
     @t.overload
@@ -64,9 +62,9 @@ class AsyncUtil:
             t.Callable[_P, t.Awaitable[_T]],
             t.Callable[_P, _T],
         ],
-        *args: _P.args, **kwargs: _P.kwargs
-    ) -> _T:
-        ...
+        *args: _P.args,
+        **kwargs: _P.kwargs,
+    ) -> _T: ...
 
     @staticmethod
     async def callback(cb, *args, **kwargs):
@@ -88,6 +86,14 @@ class AsyncUtil:
 
     is_async_code: t.ClassVar = True
 
+    @staticmethod
+    def extract_stack(limit=None):
+        # can maybe be improved in the future
+        # https://github.com/python/cpython/issues/91048
+        stack = asyncio.current_task().get_stack(limit=limit)
+        stack_walk = ((f, f.f_lineno) for f in stack)
+        return traceback.StackSummary.extract(stack_walk, limit=limit)
+
 
 class Util:
     iter: t.ClassVar = iter
@@ -96,14 +102,11 @@ class Util:
 
     @staticmethod
     @t.overload
-    def callback(cb: None, *args: object, **kwargs: object) -> None:
-        ...
+    def callback(cb: None, *args: object, **kwargs: object) -> None: ...
 
     @staticmethod
     @t.overload
-    def callback(cb: t.Callable[_P, _T],
-                 *args: _P.args, **kwargs: _P.kwargs) -> _T:
-        ...
+    def callback(cb: t.Callable[_P, _T], *args: _P.args, **kwargs: _P.kwargs) -> _T: ...
 
     @staticmethod
     def callback(cb, *args, **kwargs):
@@ -115,3 +118,7 @@ class Util:
         return coro_function
 
     is_async_code: t.ClassVar = False
+
+    @staticmethod
+    def extract_stack(limit=None):
+        return traceback.extract_stack(limit=limit)[:-1]

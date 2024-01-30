@@ -1,8 +1,6 @@
 # Copyright (c) "Neo4j"
 # Neo4j Sweden AB [https://neo4j.com]
 #
-# This file is part of Neo4j.
-#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -50,6 +48,7 @@ class Point(t.Tuple[float, ...]):
     srid: t.Optional[int]
 
     if t.TYPE_CHECKING:
+
         @property
         def x(self) -> float: ...
 
@@ -60,18 +59,14 @@ class Point(t.Tuple[float, ...]):
         def z(self) -> float: ...
 
     def __new__(cls, iterable: t.Iterable[float]) -> Point:
-        # mypy issue https://github.com/python/mypy/issues/14890
-        return tuple.__new__(  # type: ignore[type-var]
-            cls, map(float, iterable)
-        )
+        return tuple.__new__(cls, map(float, iterable))
 
     def __repr__(self) -> str:
         return "POINT(%s)" % " ".join(map(str, self))
 
     def __eq__(self, other: object) -> bool:
         try:
-            return (type(self) is type(other)
-                    and tuple(self) == tuple(t.cast(Point, other)))
+            return type(self) is type(other) and tuple(self) == tuple(t.cast(Point, other))
         except (AttributeError, TypeError):
             return False
 
@@ -82,13 +77,8 @@ class Point(t.Tuple[float, ...]):
         return hash(type(self)) ^ hash(tuple(self))
 
 
-def point_type(
-    name: str,
-    fields: t.Tuple[str, str, str],
-    srid_map: t.Dict[int, int]
-) -> t.Type[Point]:
-    """ Dynamically create a Point subclass.
-    """
+def point_type(name: str, fields: t.Tuple[str, str, str], srid_map: t.Dict[int, int]) -> t.Type[Point]:
+    """Dynamically create a Point subclass."""
 
     def srid(self):
         try:
@@ -120,13 +110,14 @@ def point_type(
 
 # Point subclass definitions
 if t.TYPE_CHECKING:
-    class CartesianPoint(Point):
-        ...
+
+    class CartesianPoint(Point): ...
+
 else:
-    CartesianPoint = point_type("CartesianPoint", ("x", "y", "z"),
-                                {2: 7203, 3: 9157})
+    CartesianPoint = point_type("CartesianPoint", ("x", "y", "z"), {2: 7203, 3: 9157})
 
 if t.TYPE_CHECKING:
+
     class WGS84Point(Point):
         @property
         def longitude(self) -> float: ...
@@ -136,6 +127,6 @@ if t.TYPE_CHECKING:
 
         @property
         def height(self) -> float: ...
+
 else:
-    WGS84Point = point_type("WGS84Point", ("longitude", "latitude", "height"),
-                            {2: 4326, 3: 4979})
+    WGS84Point = point_type("WGS84Point", ("longitude", "latitude", "height"), {2: 4326, 3: 4979})

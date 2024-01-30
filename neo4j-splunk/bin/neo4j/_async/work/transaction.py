@@ -1,8 +1,6 @@
 # Copyright (c) "Neo4j"
 # Neo4j Sweden AB [https://neo4j.com]
 #
-# This file is part of Neo4j.
-#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -25,6 +23,7 @@ from functools import wraps
 from ..._async_compat.util import AsyncUtil
 from ..._work import Query
 from ...exceptions import TransactionError
+from .._debug import AsyncNonConcurrentMethodChecker
 from ..io import ConnectionErrorHandler
 from .result import AsyncResult
 
@@ -40,13 +39,10 @@ __all__ = (
 )
 
 
-class AsyncTransactionBase:
-    def __init__(self, connection, fetch_size, on_closed, on_error,
-                 on_cancel):
+class AsyncTransactionBase(AsyncNonConcurrentMethodChecker):
+    def __init__(self, connection, fetch_size, on_closed, on_error, on_cancel):
         self._connection = connection
-        self._error_handling_connection = ConnectionErrorHandler(
-            connection, self._error_handler
-        )
+        self._error_handling_connection = ConnectionErrorHandler(connection, self._error_handler)
         self._bookmark = None
         self._database = None
         self._results = []
@@ -56,10 +52,12 @@ class AsyncTransactionBase:
         self._on_closed = on_closed
         self._on_error = on_error
         self._on_cancel = on_cancel
+        super().__init__()
 
     async def _enter(self):
         return self
 
+    @AsyncNonConcurrentMethodChecker.non_concurrent_method
     async def _exit(self, exception_type, exception_value, traceback):
         if self._closed_flag:
             return
@@ -71,25 +69,41 @@ class AsyncTransactionBase:
             return
         await self._close()
 
+    @AsyncNonConcurrentMethodChecker.non_concurrent_method
     async def _begin(
-        self, database, imp_user, bookmarks, access_mode, metadata, timeout,
-        notifications_min_severity, notifications_disabled_categories,
+        self,
+        database,
+        imp_user,
+        bookmarks,
+        access_mode,
+        metadata,
+        timeout,
+        notifications_min_severity,
+        notifications_disabled_categories,
+        pipelined=False,
     ):
         self._database = database
         self._connection.begin(
-            bookmarks=bookmarks, metadata=metadata, timeout=timeout,
-            mode=access_mode, db=database, imp_user=imp_user,
+            bookmarks=bookmarks,
+            metadata=metadata,
+            timeout=timeout,
+            mode=access_mode,
+            db=database,
+            imp_user=imp_user,
             notifications_min_severity=notifications_min_severity,
-            notifications_disabled_categories=notifications_disabled_categories
+            notifications_disabled_categories=notifications_disabled_categories,
         )
-        await self._error_handling_connection.send_all()
-        await self._error_handling_connection.fetch_all()
+        if not pipelined:
+            await self._error_handling_connection.send_all()
+            await self._error_handling_connection.fetch_all()
 
     async def _result_on_closed_handler(self):
         pass
 
     async def _error_handler(self, exc):
         self._last_error = exc
+        for result in self._results:
+            result._tx_failure(exc)
         if isinstance(exc, asyncio.CancelledError):
             self._cancel()
             return
@@ -100,13 +114,11 @@ class AsyncTransactionBase:
             await result._tx_end()
         self._results = []
 
+    @AsyncNonConcurrentMethodChecker.non_concurrent_method
     async def run(
-        self,
-        query: te.LiteralString,
-        parameters: t.Optional[t.Dict[str, t.Any]] = None,
-        **kwparameters: t.Any
+        self, query: te.LiteralString, parameters: t.Optional[t.Dict[str, t.Any]] = None, **kwparameters: t.Any
     ) -> AsyncResult:
-        """ Run a Cypher query within the context of this transaction.
+        """Run a Cypher query within the context of this transaction.
 
         Cypher is typically expressed as a query template plus a
         set of named parameters. In Python, parameters may be expressed
@@ -125,9 +137,12 @@ class AsyncTransactionBase:
         :class:`list` properties must be homogenous.
 
         :param query: cypher query
+        :type query: typing.LiteralString
         :param parameters: dictionary of parameters
+        :type parameters: typing.Dict[str, typing.Any] | None
         :param kwparameters: additional keyword parameters.
             These take precedence over parameters passed as ``parameters``.
+        :type kwparameters: typing.Any
 
         :raise TransactionError: if the transaction is already closed
 
@@ -139,20 +154,15 @@ class AsyncTransactionBase:
         if self._closed_flag:
             raise TransactionError(self, "Transaction closed")
         if self._last_error:
-            raise TransactionError(self,
-                                   "Transaction failed") from self._last_error
+            raise TransactionError(self, "Transaction failed") from self._last_error
 
-        if (self._results
-                and self._connection.supports_multiple_results is False):
+        if self._results and self._connection.supports_multiple_results is False:
             # Bolt 3 Support
             # Buffer up all records for the previous Result because it does not
             # have any qid to fetch in batches.
             await self._results[-1]._buffer_all()
 
-        result = AsyncResult(
-            self._connection, self._fetch_size, self._result_on_closed_handler,
-            self._error_handler
-        )
+        result = AsyncResult(self._connection, self._fetch_size, self._result_on_closed_handler, self._error_handler)
         self._results.append(result)
 
         parameters = dict(parameters or {}, **kwparameters)
@@ -160,6 +170,7 @@ class AsyncTransactionBase:
 
         return result
 
+    @AsyncNonConcurrentMethodChecker.non_concurrent_method
     async def _commit(self):
         """Mark this transaction as successful and close in order to trigger a COMMIT.
 
@@ -168,8 +179,7 @@ class AsyncTransactionBase:
         if self._closed_flag:
             raise TransactionError(self, "Transaction closed")
         if self._last_error:
-            raise TransactionError(self,
-                                   "Transaction failed") from self._last_error
+            raise TransactionError(self, "Transaction failed") from self._last_error
 
         metadata = {}
         try:
@@ -189,6 +199,7 @@ class AsyncTransactionBase:
 
         return self._bookmark
 
+    @AsyncNonConcurrentMethodChecker.non_concurrent_method
     async def _rollback(self):
         """Mark this transaction as unsuccessful and close in order to trigger a ROLLBACK.
 
@@ -199,9 +210,7 @@ class AsyncTransactionBase:
 
         metadata = {}
         try:
-            if not (self._connection.defunct()
-                    or self._connection.closed()
-                    or self._connection.is_reset):
+            if not (self._connection.defunct() or self._connection.closed() or self._connection.is_reset):
                 # DISCARD pending records then do a rollback.
                 await self._consume_results()
                 self._connection.rollback(on_success=metadata.update)
@@ -214,14 +223,15 @@ class AsyncTransactionBase:
             self._closed_flag = True
             await AsyncUtil.callback(self._on_closed)
 
+    @AsyncNonConcurrentMethodChecker.non_concurrent_method
     async def _close(self):
-        """Close this transaction, triggering a ROLLBACK if not closed.
-        """
+        """Close this transaction, triggering a ROLLBACK if not closed."""
         if self._closed_flag:
             return
         await self._rollback()
 
     if AsyncUtil.is_async_code:
+
         def _cancel(self) -> None:
             """Cancel this transaction.
 
@@ -253,14 +263,14 @@ class AsyncTransactionBase:
         """Indicate whether the transaction has been closed or cancelled.
 
         :returns:
-            :const:`True` if closed or cancelled, :const:`False` otherwise.
+            :data:`True` if closed or cancelled, :data:`False` otherwise.
         :rtype: bool
         """
         return self._closed_flag
 
 
 class AsyncTransaction(AsyncTransactionBase):
-    """ Container for multiple Cypher queries to be executed within a single
+    """Container for multiple Cypher queries to be executed within a single
     context. :class:`AsyncTransaction` objects can be used as a context
     managers (:py:const:`async with` block) where the transaction is committed
     or rolled back on based on whether an exception is raised::
@@ -295,6 +305,7 @@ class AsyncTransaction(AsyncTransactionBase):
         return self._closed()
 
     if AsyncUtil.is_async_code:
+
         @wraps(AsyncTransactionBase._cancel)
         def cancel(self) -> None:
             return self._cancel()
@@ -323,4 +334,5 @@ class AsyncManagedTransaction(AsyncTransactionBase):
         but would cause hard to interpret errors when managed explicitly
         (committed or rolled back by user code).
     """
+
     pass

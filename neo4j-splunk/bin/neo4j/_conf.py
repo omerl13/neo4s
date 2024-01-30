@@ -1,8 +1,6 @@
 # Copyright (c) "Neo4j"
 # Neo4j Sweden AB [https://neo4j.com]
 #
-# This file is part of Neo4j.
-#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -18,14 +16,12 @@
 
 from __future__ import annotations
 
-import warnings
 from abc import ABCMeta
 from collections.abc import Mapping
 
 from ._meta import (
     deprecation_warn,
     experimental_warn,
-    ExperimentalWarning,
 )
 from .api import (
     DEFAULT_DATABASE,
@@ -37,7 +33,7 @@ from .exceptions import ConfigurationError
 
 
 def iter_items(iterable):
-    """ Iterate through all items (key-value pairs) within an iterable
+    """Iterate through all items (key-value pairs) within an iterable
     dictionary-like object. If the object has a `keys` method, this is
     used along with `__getitem__` to yield each pair in turn. If no
     `keys` method exists, each iterable element is assumed to be a
@@ -71,6 +67,7 @@ class TrustSystemCAs(TrustStore):
             url, auth=auth, trusted_certificates=neo4j.TrustSystemCAs()
         )
     """
+
     pass
 
 
@@ -95,6 +92,7 @@ class TrustAll(TrustStore):
             url, auth=auth, trusted_certificates=neo4j.TrustAll()
         )
     """
+
     pass
 
 
@@ -121,6 +119,7 @@ class TrustCustomCAs(TrustStore):
             )
         )
     """
+
     def __init__(self, *certificates):
         self.certs = certificates
 
@@ -172,11 +171,7 @@ class ConfigType(ABCMeta):
                 experimental_options.update(base._experimental_options())
 
         for k, v in attributes.items():
-            if (
-                k.startswith("_")
-                or callable(v)
-                or isinstance(v, (staticmethod, classmethod))
-            ):
+            if k.startswith("_") or callable(v) or isinstance(v, (staticmethod, classmethod)):
                 continue
             if isinstance(v, DeprecatedAlias):
                 deprecated_aliases[k] = v.new
@@ -198,13 +193,10 @@ class ConfigType(ABCMeta):
             return set(fields)
 
         def _deprecated_keys(_):
-            return (set(deprecated_aliases.keys())
-                    | set(deprecated_alternatives.keys()))
+            return set(deprecated_aliases.keys()) | set(deprecated_alternatives.keys())
 
         def _get_new(_, key):
-            return deprecated_aliases.get(
-                key, deprecated_alternatives.get(key, (None,))[0]
-            )
+            return deprecated_aliases.get(key, deprecated_alternatives.get(key, (None,))[0])
 
         def _deprecated_aliases(_):
             return deprecated_aliases
@@ -219,28 +211,20 @@ class ConfigType(ABCMeta):
             return experimental_options
 
         attributes.setdefault("keys", classmethod(keys))
-        attributes.setdefault("_get_new",
-                              classmethod(_get_new))
-        attributes.setdefault("_deprecated_keys",
-                              classmethod(_deprecated_keys))
-        attributes.setdefault("_deprecated_aliases",
-                              classmethod(_deprecated_aliases))
-        attributes.setdefault("_deprecated_alternatives",
-                              classmethod(_deprecated_alternatives))
-        attributes.setdefault("_deprecated_options",
-                              classmethod(_deprecated_options))
-        attributes.setdefault("_experimental_options",
-                              classmethod(_experimental_options))
+        attributes.setdefault("_get_new", classmethod(_get_new))
+        attributes.setdefault("_deprecated_keys", classmethod(_deprecated_keys))
+        attributes.setdefault("_deprecated_aliases", classmethod(_deprecated_aliases))
+        attributes.setdefault("_deprecated_alternatives", classmethod(_deprecated_alternatives))
+        attributes.setdefault("_deprecated_options", classmethod(_deprecated_options))
+        attributes.setdefault("_experimental_options", classmethod(_experimental_options))
 
         return super(ConfigType, mcs).__new__(
-            mcs, name, bases, {k: v for k, v in attributes.items()
-                               if k not in _deprecated_keys(None)}
+            mcs, name, bases, {k: v for k, v in attributes.items() if k not in _deprecated_keys(None)}
         )
 
 
 class Config(Mapping, metaclass=ConfigType):
-    """ Base class for all configuration containers.
-    """
+    """Base class for all configuration containers."""
 
     @staticmethod
     def consume_chain(data, *config_classes):
@@ -255,7 +239,7 @@ class Config(Mapping, metaclass=ConfigType):
 
     @classmethod
     def consume(cls, data):
-        config, = cls.consume_chain(data, cls)
+        (config,) = cls.consume_chain(data, cls)
         return config
 
     @classmethod
@@ -271,15 +255,14 @@ class Config(Mapping, metaclass=ConfigType):
                     config[key] = value
         return cls(config)
 
-    def __update(self, data):
+    def __update(self, data, warn=True):
         data_dict = dict(iter_items(data))
 
         def set_attr(k, v):
             if k in self.keys():
-                if k in self._deprecated_options():
-                    deprecation_warn("The '{}' config key is "
-                                     "deprecated.".format(k))
-                if k in self._experimental_options():
+                if warn and k in self._deprecated_options():
+                    deprecation_warn("The '{}' config key is " "deprecated.".format(k))
+                if warn and k in self._experimental_options():
                     experimental_warn(
                         "The '{}' config key is experimental. "
                         "It might be changed or removed any time even without "
@@ -289,14 +272,9 @@ class Config(Mapping, metaclass=ConfigType):
             elif k in self._deprecated_keys():
                 k0 = self._get_new(k)
                 if k0 in data_dict:
-                    raise ConfigurationError(
-                        "Cannot specify both '{}' and '{}' in config"
-                        .format(k0, k)
-                    )
-                deprecation_warn(
-                    "The '{}' config key is deprecated, please use '{}' "
-                    "instead".format(k, k0)
-                )
+                    raise ConfigurationError("Cannot specify both '{}' and '{}' in config".format(k0, k))
+                if warn:
+                    deprecation_warn("The '{}' config key is deprecated, please use '{}' " "instead".format(k, k0))
                 if k in self._deprecated_aliases():
                     set_attr(k0, v)
                 else:  # k in self._deprecated_alternatives:
@@ -316,16 +294,12 @@ class Config(Mapping, metaclass=ConfigType):
                     rejected_keys.append(key)
 
         if rejected_keys:
-            raise ConfigurationError("Unexpected config keys: "
-                                     + ", ".join(rejected_keys))
+            raise ConfigurationError("Unexpected config keys: " + ", ".join(rejected_keys))
 
     def __init__(self, *args, **kwargs):
         for arg in args:
             if isinstance(arg, Config):
-                with warnings.catch_warnings():
-                    for cat in (DeprecationWarning, ExperimentalWarning):
-                        warnings.filterwarnings("ignore", category=cat)
-                    self.__update(arg)
+                self.__update(arg, warn=False)
             else:
                 self.__update(arg)
         self.__update(kwargs)
@@ -354,12 +328,15 @@ def _trust_to_trusted_certificates(pool_config, trust):
 
 
 class PoolConfig(Config):
-    """ Connection pool configuration.
-    """
+    """Connection pool configuration."""
 
     #: Max Connection Lifetime
     max_connection_lifetime = 3600  # seconds
     # The maximum duration the driver will keep a connection for before being removed from the pool.
+
+    #: Timeout after which idle connections will be checked for liveness
+    #: before returned from the pool.
+    liveness_check_timeout = None
 
     #: Max Connection Pool Size
     max_connection_pool_size = 100
@@ -370,9 +347,7 @@ class PoolConfig(Config):
     # The maximum amount of time to wait for a TCP connection to be established.
 
     #: Trust
-    trust = DeprecatedAlternative(
-        "trusted_certificates", _trust_to_trusted_certificates
-    )
+    trust = DeprecatedAlternative("trusted_certificates", _trust_to_trusted_certificates)
     # Specify how to determine the authenticity of encryption certificates provided by the Neo4j instance on connection.
 
     #: Custom Resolver
@@ -414,6 +389,9 @@ class PoolConfig(Config):
 
     #: List of notification categories for the server to ignore
     notifications_disabled_categories = None
+
+    #: Opt-Out of telemetry collection
+    telemetry_disabled = False
 
     def get_ssl_context(self):
         if self.ssl_context is not None:
@@ -464,8 +442,7 @@ class PoolConfig(Config):
 
 
 class WorkspaceConfig(Config):
-    """ WorkSpace configuration.
-    """
+    """WorkSpace configuration."""
 
     #: Connection Acquisition Timeout
     connection_acquisition_timeout = 60.0  # seconds
@@ -504,8 +481,7 @@ class WorkspaceConfig(Config):
 
 
 class SessionConfig(WorkspaceConfig):
-    """ Session configuration.
-    """
+    """Session configuration."""
 
     #: Bookmarks
     bookmarks = None
@@ -524,7 +500,7 @@ class SessionConfig(WorkspaceConfig):
 
 
 class TransactionConfig(Config):
-    """ Transaction configuration. This is internal for now.
+    """Transaction configuration. This is internal for now.
 
     neo4j.session.begin_transaction
     neo4j.Query
@@ -532,6 +508,7 @@ class TransactionConfig(Config):
 
     are both using the same settings.
     """
+
     #: Metadata
     metadata = None  # dictionary
 
@@ -540,8 +517,7 @@ class TransactionConfig(Config):
 
 
 class RoutingConfig(Config):
-    """ Neo4jDriver routing settings. This is internal for now.
-    """
+    """Neo4jDriver routing settings. This is internal for now."""
 
     #: Routing Table Purge_Delay
     routing_table_purge_delay = 30.0  # seconds

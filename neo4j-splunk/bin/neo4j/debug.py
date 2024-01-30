@@ -1,8 +1,6 @@
 # Copyright (c) "Neo4j"
 # Neo4j Sweden AB [https://neo4j.com]
 #
-# This file is part of Neo4j.
-#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -34,15 +32,11 @@ from logging import (
 from sys import stderr
 
 
-__all__ = [
-    "Watcher",
-    "watch"
-]
+__all__ = ["Watcher", "watch"]
 
 
 class ColourFormatter(Formatter):
-    """ Colour formatter for pretty log output.
-    """
+    """Colour formatter for pretty log output."""
 
     def format(self, record):
         s = super().format(record)
@@ -51,11 +45,11 @@ class ColourFormatter(Formatter):
         elif record.levelno == ERROR:
             return "\x1b[33;1m%s\x1b[0m" % s  # bright yellow
         elif record.levelno == WARNING:
-            return "\x1b[33m%s\x1b[0m" % s    # yellow
+            return "\x1b[33m%s\x1b[0m" % s  # yellow
         elif record.levelno == INFO:
-            return "\x1b[37m%s\x1b[0m" % s    # white
+            return "\x1b[37m%s\x1b[0m" % s  # white
         elif record.levelno == DEBUG:
-            return "\x1b[36m%s\x1b[0m" % s    # cyan
+            return "\x1b[36m%s\x1b[0m" % s  # cyan
         else:
             return s
 
@@ -106,8 +100,7 @@ class Watcher:
     :param task_info: whether to include information about the current
         async task in the log message. Defaults to :const:`True`.
 
-    .. versionchanged::
-        5.3
+    .. versionchanged:: 5.3
 
         * Added ``thread_info`` and ``task_info`` parameters.
         * Logging format around thread and task information changed.
@@ -149,9 +142,7 @@ class Watcher:
         """Disable logging for all loggers."""
         self.stop()
 
-    def watch(
-        self, level: t.Optional[int] = None, out: t.Optional[t.TextIO] = None
-    ) -> None:
+    def watch(self, level: t.Optional[int] = None, out: t.Optional[t.TextIO] = None) -> None:
         """Enable logging for all loggers.
 
         :param level: Minimum log level to show.
@@ -167,12 +158,14 @@ class Watcher:
         self.stop()
         handler = StreamHandler(out)
         handler.setFormatter(self.formatter)
+        handler.setLevel(level)
         if self._task_info:
             handler.addFilter(TaskIdFilter())
-        for logger in self. _loggers:
+        for logger in self._loggers:
             self._handlers[logger.name] = handler
             logger.addHandler(handler)
-            logger.setLevel(level)
+            if logger.getEffectiveLevel() > level:
+                logger.setLevel(level)
 
     def stop(self) -> None:
         """Disable logging for all loggers."""
@@ -219,26 +212,13 @@ def watch(
     :returns: Watcher instance
     :rtype: :class:`.Watcher`
 
-    .. versionchanged::
-        5.3
+    .. versionchanged:: 5.3
 
         * Added ``thread_info`` and ``task_info`` parameters.
         * Logging format around thread and task information changed.
     """
-    watcher = Watcher(*logger_names, default_level=level, default_out=out,
-                      colour=colour, thread_info=thread_info,
-                      task_info=task_info)
+    watcher = Watcher(
+        *logger_names, default_level=level, default_out=out, colour=colour, thread_info=thread_info, task_info=task_info
+    )
     watcher.watch()
     return watcher
-
-
-class Connection:
-    def connect(self):
-        self.hello()  # buffer HELLO message
-        self.logon()  # buffer LOGON message
-        self.send_and_receive()  # send HELLO and LOGON, receive 2x SUCCESS
-
-    def reauth(self):
-        self.logoff()  # buffer LOGOFF message
-        self.logon()  # buffer LOGON message
-        self.send_and_receive()  # send LOGOFF and LOGON, receive 2x SUCCESS

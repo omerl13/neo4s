@@ -1,8 +1,6 @@
 # Copyright (c) "Neo4j"
 # Neo4j Sweden AB [https://neo4j.com]
 #
-# This file is part of Neo4j.
-#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -49,11 +47,7 @@ class DehydrationHooks:
         if transformer is not None:
             return transformer
         transformer = next(
-            (
-                f
-                for super_type, f in self.subtypes.items()
-                if isinstance(item, super_type)
-            ),
+            (f for super_type, f in self.subtypes.items() if isinstance(item, super_type)),
             None,
         )
         if transformer is not None:
@@ -113,9 +107,7 @@ class HydrationScope:
         f = self._struct_hydration_functions.get(value.tag)
         try:
             if not f:
-                raise ValueError(
-                    f"Protocol error: unknown Structure tag: {value.tag!r}"
-                )
+                raise ValueError(f"Protocol error: unknown Structure tag: {value.tag!r}")
             return f(*value.fields)
         except Exception as e:
             return BrokenHydrationObject(e, value)

@@ -1,8 +1,6 @@
 # Copyright (c) "Neo4j"
 # Neo4j Sweden AB [https://neo4j.com]
 #
-# This file is part of Neo4j.
-#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -24,8 +22,7 @@ from os import strerror
 
 
 class BoltError(Exception):
-    """ Base class for all Bolt protocol errors.
-    """
+    """Base class for all Bolt protocol errors."""
 
     def __init__(self, message, address):
         super().__init__(message)
@@ -33,15 +30,15 @@ class BoltError(Exception):
 
 
 class BoltConnectionError(BoltError):
-    """ Raised when a connection fails.
-    """
+    """Raised when a connection fails."""
 
     def __init__(self, message, address):
         msg = (
-        "Connection Failed. "
-        "Please ensure that your database is listening on the correct host and port and that you have enabled encryption if required. "
-        "Note that the default encryption setting has changed in Neo4j 4.0. See the docs for more information. "
-        "{}")
+            "Connection Failed. "
+            "Please ensure that your database is listening on the correct host and port and that you have enabled encryption if required. "
+            "Note that the default encryption setting has changed in Neo4j 4.0. See the docs for more information. "
+            "{}"
+        )
 
         super().__init__(msg.format(message), address)
 
@@ -61,15 +58,14 @@ class BoltConnectionError(BoltError):
 
 
 class BoltSecurityError(BoltConnectionError):
-    """ Raised when a connection fails for security reasons.
-    """
+    """Raised when a connection fails for security reasons."""
 
     def __str__(self):
         return "[{}] {}".format(self.__cause__.__class__.__name__, super().__str__())
 
 
 class BoltConnectionBroken(BoltConnectionError):
-    """ Raised when an established connection is lost or when an
+    """Raised when an established connection is lost or when an
     attempt is made to use a connection that has previously broken.
     """
 
@@ -77,14 +73,13 @@ class BoltConnectionBroken(BoltConnectionError):
 
 
 class BoltConnectionClosed(BoltConnectionError):
-    """ Raised when an attempt is made to use a connection that has
+    """Raised when an attempt is made to use a connection that has
     been closed locally.
     """
 
 
 class BoltHandshakeError(BoltError):
-    """ Raised when a handshake completes unsuccessfully.
-    """
+    """Raised when a handshake completes unsuccessfully."""
 
     def __init__(self, message, address, request_data, response_data):
         super().__init__(message, address)
@@ -93,15 +88,15 @@ class BoltHandshakeError(BoltError):
 
 
 class BoltTransactionError(BoltError):
-    """ Raised when a fault occurs with a transaction, or when a
+    """Raised when a fault occurs with a transaction, or when a
     transaction is used incorrectly.
     """
+
     # TODO: pass the transaction object in as an argument
 
 
 class BoltFailure(BoltError):
-    """ Holds a Cypher failure.
-    """
+    """Holds a Cypher failure."""
 
     #:
     code = None
@@ -151,8 +146,7 @@ class BoltFailure(BoltError):
 
     @property
     def result(self):
-        """ The Result object to which this failure is attached (if any).
-        """
+        """The Result object to which this failure is attached (if any)."""
         try:
             return self.response.result
         except AttributeError:
@@ -167,8 +161,7 @@ class BoltFailure(BoltError):
 
 
 class BoltProtocolError(BoltError):
-    """ Raised when an unexpected or unsupported protocol event occurs.
-    """
+    """Raised when an unexpected or unsupported protocol event occurs."""
 
 
 class SocketDeadlineExceeded(RuntimeError):

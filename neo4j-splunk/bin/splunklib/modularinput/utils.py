@@ -16,6 +16,8 @@
 
 from __future__ import absolute_import
 from splunklib.six.moves import zip
+
+
 def xml_compare(expected, found):
     """Checks equality of two ``ElementTree`` objects.
 
@@ -43,12 +45,11 @@ def xml_compare(expected, found):
         return False
 
     # compare elements, if there is no text node, return True
-    if (expected.text is None or expected.text.strip() == "") \
-        and (found.text is None or found.text.strip() == ""):
+    if (expected.text is None or expected.text.strip() == "") and (found.text is None or found.text.strip() == ""):
         return True
     else:
-        return expected.tag == found.tag and expected.text == found.text \
-            and expected.attrib == found.attrib
+        return expected.tag == found.tag and expected.text == found.text and expected.attrib == found.attrib
+
 
 def parse_parameters(param_node):
     if param_node.tag == "param":
@@ -61,15 +62,14 @@ def parse_parameters(param_node):
     else:
         raise ValueError("Invalid configuration scheme, %s tag unexpected." % param_node.tag)
 
+
 def parse_xml_data(parent_node, child_node_tag):
     data = {}
     for child in parent_node:
         child_name = child.get("name")
         if child.tag == child_node_tag:
             if child_node_tag == "stanza":
-                data[child_name] = {
-                    "__app": child.get("app", None)
-                }
+                data[child_name] = {"__app": child.get("app", None)}
                 for param in child:
                     data[child_name][param.get("name")] = parse_parameters(param)
         elif "item" == parent_node.tag:

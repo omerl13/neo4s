@@ -1,8 +1,6 @@
 # Copyright (c) "Neo4j"
 # Neo4j Sweden AB [https://neo4j.com]
 #
-# This file is part of Neo4j.
-#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -30,7 +28,7 @@ from ...exceptions import (
 )
 
 
-log = logging.getLogger("neo4j")
+log = logging.getLogger("neo4j.io")
 
 
 class Inbox:
@@ -55,17 +53,13 @@ class Inbox:
                     if chunk_size == 0:
                         log.debug("[#%04X]  S: <NOOP>", self._local_port)
 
-                receive_into_buffer(
-                    self._socket, self._buffer, chunk_size + 2
-                )
+                receive_into_buffer(self._socket, self._buffer, chunk_size + 2)
                 chunk_size = self._buffer.pop_u16()
 
                 if chunk_size == 0:
                     # chunk_size was the end marker for the message
                     return
-        except (
-            OSError, SocketDeadlineExceeded, asyncio.CancelledError
-        ) as error:
+        except (OSError, SocketDeadlineExceeded, asyncio.CancelledError) as error:
             self._broken = True
             Util.callback(self.on_error, error)
             raise
@@ -74,8 +68,7 @@ class Inbox:
         self._buffer_one_chunk()
         try:
             size, tag = self._unpacker.unpack_structure_header()
-            fields = [self._unpacker.unpack(hydration_hooks)
-                      for _ in range(size)]
+            fields = [self._unpacker.unpack(hydration_hooks) for _ in range(size)]
             return tag, fields
         finally:
             # Reset for new message
@@ -102,9 +95,7 @@ class Outbox:
 
     def _chunk_data(self):
         data_len = len(self._buffer.data)
-        num_full_chunks, chunk_rest = divmod(
-            data_len, self._max_chunk_size
-        )
+        num_full_chunks, chunk_rest = divmod(data_len, self._max_chunk_size)
         num_chunks = num_full_chunks + bool(chunk_rest)
 
         with memoryview(self._buffer.data) as data_view:
@@ -112,13 +103,11 @@ class Outbox:
             data_start = header_start + 2
             raw_data_start = 0
             for i in range(num_chunks):
-                chunk_size = min(data_len - raw_data_start,
-                                 self._max_chunk_size)
-                self._chunked_data[header_start:data_start] = struct_pack(
-                    ">H", chunk_size
-                )
-                self._chunked_data[data_start:(data_start + chunk_size)] = \
-                    data_view[raw_data_start:(raw_data_start + chunk_size)]
+                chunk_size = min(data_len - raw_data_start, self._max_chunk_size)
+                self._chunked_data[header_start:data_start] = struct_pack(">H", chunk_size)
+                self._chunked_data[data_start : (data_start + chunk_size)] = data_view[
+                    raw_data_start : (raw_data_start + chunk_size)
+                ]
                 header_start += chunk_size + 2
                 data_start = header_start + 2
                 raw_data_start += chunk_size
@@ -139,9 +128,7 @@ class Outbox:
         if data:
             try:
                 self.socket.sendall(data)
-            except (
-                OSError, SocketDeadlineExceeded, asyncio.CancelledError
-            ) as error:
+            except (OSError, SocketDeadlineExceeded, asyncio.CancelledError) as error:
                 Util.callback(self.on_error, error)
                 return False
             self._clear()
@@ -182,16 +169,17 @@ class ConnectionErrorHandler:
                     assert not asyncio.iscoroutinefunction(self.__on_error)
                     self.__on_error(exc)
                     raise
+
             return inner
 
         def outer_async(coroutine_func):
             def inner(*args, **kwargs):
                 try:
                     coroutine_func(*args, **kwargs)
-                except (Neo4jError, ServiceUnavailable, SessionExpired,
-                        asyncio.CancelledError) as exc:
+                except (Neo4jError, ServiceUnavailable, SessionExpired, asyncio.CancelledError) as exc:
                     Util.callback(self.__on_error, exc)
                     raise
+
             return inner
 
         if asyncio.iscoroutinefunction(connection_attr):
@@ -206,7 +194,7 @@ class ConnectionErrorHandler:
 
 
 class Response:
-    """ Subscriber object for a full response (zero or
+    """Subscriber object for a full response (zero or
     more detail messages followed by one summary message).
     """
 
@@ -218,14 +206,12 @@ class Response:
         self.complete = False
 
     def on_records(self, records):
-        """ Called when one or more RECORD messages have been received.
-        """
+        """Called when one or more RECORD messages have been received."""
         handler = self.handlers.get("on_records")
         Util.callback(handler, records)
 
     def on_success(self, metadata):
-        """ Called when a SUCCESS message has been received.
-        """
+        """Called when a SUCCESS message has been received."""
         handler = self.handlers.get("on_success")
         Util.callback(handler, metadata)
 
@@ -234,8 +220,7 @@ class Response:
             Util.callback(handler)
 
     def on_failure(self, metadata):
-        """ Called when a FAILURE message has been received.
-        """
+        """Called when a FAILURE message has been received."""
         try:
             self.connection.reset()
         except (SessionExpired, ServiceUnavailable):
@@ -247,8 +232,7 @@ class Response:
         raise Neo4jError.hydrate(**metadata)
 
     def on_ignored(self, metadata=None):
-        """ Called when an IGNORED message has been received.
-        """
+        """Called when an IGNORED message has been received."""
         handler = self.handlers.get("on_ignored")
         Util.callback(handler, metadata)
         handler = self.handlers.get("on_summary")
@@ -264,10 +248,7 @@ class InitResponse(Response):
         Util.callback(handler, metadata)
         handler = self.handlers.get("on_summary")
         Util.callback(handler)
-        metadata["message"] = metadata.get(
-            "message",
-            "Connection initialisation failed due to an unknown error"
-        )
+        metadata["message"] = metadata.get("message", "Connection initialisation failed due to an unknown error")
         raise Neo4jError.hydrate(**metadata)
 
 
@@ -283,12 +264,34 @@ class LogonResponse(InitResponse):
         raise Neo4jError.hydrate(**metadata)
 
 
+class ResetResponse(Response):
+    def _unexpected_message(self, response):
+        log.warning(
+            "[#%04X]  _: <CONNECTION> RESET received %s " "(unexpected response) => dropping connection",
+            self.connection.local_port,
+            response,
+        )
+        self.connection.close()
+
+    def on_records(self, records):
+        self._unexpected_message("RECORD")
+
+    def on_success(self, metadata):
+        pass
+
+    def on_failure(self, metadata):
+        self._unexpected_message("FAILURE")
+
+    def on_ignored(self, metadata=None):
+        self._unexpected_message("IGNORED")
+
+
 class CommitResponse(Response):
     pass
 
 
 def check_supported_server_product(agent):
-    """ Checks that a server product is supported by the driver by
+    """Checks that a server product is supported by the driver by
     looking at the server agent string.
 
     :param agent: server agent string to check for validity
@@ -305,7 +308,7 @@ def receive_into_buffer(sock, buffer, n_bytes):
         buffer.data += bytearray(end - len(buffer.data))
     with memoryview(buffer.data) as view:
         while buffer.used < end:
-            n = sock.recv_into(view[buffer.used:end], end - buffer.used)
+            n = sock.recv_into(view[buffer.used : end], end - buffer.used)
             if n == 0:
                 raise OSError("No data")
             buffer.used += n

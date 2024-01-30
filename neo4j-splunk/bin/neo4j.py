@@ -1,17 +1,12 @@
 import json
-import sys
-import time
 from splunklib.searchcommands import (
     dispatch,
     GeneratingCommand,
     Configuration,
     Option,
-    validators,
 )
 from neo4j import GraphDatabase, basic_auth
-from neo4j.graph import Node, Relationship
 from fields_extractor import FieldsExtractor
-from empty_results_exception import EmptyResultsExceptions
 
 
 @Configuration()
@@ -24,9 +19,7 @@ class Neo4jCommand(GeneratingCommand):
     database = Option(require=False, default="neo4j")
     query_params = Option(require=False, default="")
 
-    def __get_data(
-        self, query, host, username, password, scheme, database, query_params
-    ):
+    def __get_data(self, query, host, username, password, scheme, database, query_params):
         url = scheme + "://" + host
         # set up authentication parameters
         auth = None
@@ -37,14 +30,14 @@ class Neo4jCommand(GeneratingCommand):
         if query_params:
             try:
                 parameters = json.loads(query_params)
-            except ValueError as e:
+            except (ValueError, json.JSONDecodeError) as e:
                 raise ValueError(f"Error in query params dict: {e}")
 
         with driver.session(database=database) as session:
             results = session.run(query, parameters=parameters)
 
             for record in results:
-                yield (record)
+                yield record
 
     def generate(self):
         results = self.__get_data(

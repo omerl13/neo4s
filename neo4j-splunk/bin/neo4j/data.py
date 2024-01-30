@@ -1,8 +1,6 @@
 # Copyright (c) "Neo4j"
 # Neo4j Sweden AB [https://neo4j.com]
 #
-# This file is part of Neo4j.
-#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -38,5 +36,5 @@ deprecation_warn(
     "The module `neo4j.data` was made internal and will "
     "no longer be available for import in future versions. "
     "`neo4j.data.Record` should be imported directly from `neo4j`.",
-    stack_level=2
+    stack_level=2,
 )

@@ -1,8 +1,6 @@
 # Copyright (c) "Neo4j"
 # Neo4j Sweden AB [https://neo4j.com]
 #
-# This file is part of Neo4j.
-#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -49,8 +47,7 @@ DRIVER_BOLT: te.Final[str] = "DRIVER_BOLT"
 DRIVER_NEO4J: te.Final[str] = "DRIVER_NEO4J"
 
 SECURITY_TYPE_NOT_SECURE: te.Final[str] = "SECURITY_TYPE_NOT_SECURE"
-SECURITY_TYPE_SELF_SIGNED_CERTIFICATE: te.Final[str] = \
-    "SECURITY_TYPE_SELF_SIGNED_CERTIFICATE"
+SECURITY_TYPE_SELF_SIGNED_CERTIFICATE: te.Final[str] = "SECURITY_TYPE_SELF_SIGNED_CERTIFICATE"
 SECURITY_TYPE_SECURE: te.Final[str] = "SECURITY_TYPE_SECURE"
 
 URI_SCHEME_BOLT: te.Final[str] = "bolt"
@@ -64,8 +61,7 @@ URI_SCHEME_NEO4J_SECURE: te.Final[str] = "neo4j+s"
 URI_SCHEME_BOLT_ROUTING: te.Final[str] = "bolt+routing"
 
 # TODO: 6.0 - remove TRUST constants
-TRUST_SYSTEM_CA_SIGNED_CERTIFICATES: te.Final[str] = \
-    "TRUST_SYSTEM_CA_SIGNED_CERTIFICATES"  # Default
+TRUST_SYSTEM_CA_SIGNED_CERTIFICATES: te.Final[str] = "TRUST_SYSTEM_CA_SIGNED_CERTIFICATES"  # Default
 TRUST_ALL_CERTIFICATES: te.Final[str] = "TRUST_ALL_CERTIFICATES"
 
 SYSTEM_DATABASE: te.Final[str] = "system"
@@ -78,11 +74,16 @@ class Auth:
 
     :param scheme: specifies the type of authentication, examples: "basic",
                    "kerberos"
+    :type scheme: str | None
     :param principal: specifies who is being authenticated
+    :type principal: str | None
     :param credentials: authenticates the principal
+    :type credentials: str | None
     :param realm: specifies the authentication provider
+    :type realm: str | None
     :param parameters: extra key word parameters passed along to the
                        authentication provider
+    :type parameters: typing.Any
     """
 
     def __init__(
@@ -91,7 +92,7 @@ class Auth:
         principal: t.Optional[str],
         credentials: t.Optional[str],
         realm: t.Optional[str] = None,
-        **parameters: t.Any
+        **parameters: t.Any,
     ) -> None:
         self.scheme = scheme
         # Neo4j servers pre 4.4 require the principal field to always be
@@ -105,7 +106,7 @@ class Auth:
         if parameters:
             self.parameters = parameters
 
-    def __eq__(self, other):
+    def __eq__(self, other: t.Any) -> bool:
         if not isinstance(other, Auth):
             return NotImplemented
         return vars(self) == vars(other)
@@ -114,16 +115,11 @@ class Auth:
 # For backwards compatibility
 AuthToken = Auth
 
-# if t.TYPE_CHECKING:
-# commented out as work around for
-# https://github.com/sphinx-doc/sphinx/pull/10880
-# make sure TAuth is resolved in the docs, else they're pretty useless
-_TAuth = t.Union[t.Tuple[t.Any, t.Any], Auth, None]
+if t.TYPE_CHECKING:
+    _TAuth = t.Union[t.Tuple[t.Any, t.Any], Auth, None]
 
 
-def basic_auth(
-    user: str, password: str, realm: t.Optional[str] = None
-) -> Auth:
+def basic_auth(user: str, password: str, realm: t.Optional[str] = None) -> Auth:
     """Generate a basic auth token for a given user and password.
 
     This will set the scheme to "basic" for the auth token.
@@ -171,7 +167,7 @@ def custom_auth(
     credentials: t.Optional[str],
     realm: t.Optional[str],
     scheme: t.Optional[str],
-    **parameters: t.Any
+    **parameters: t.Any,
 ) -> Auth:
     """Generate a custom auth token.
 
@@ -189,6 +185,7 @@ def custom_auth(
 
 
 # TODO: 6.0 - remove this class
+@deprecated("Use the `Bookmarks` class instead.")
 class Bookmark:
     """A Bookmark object contains an immutable list of bookmark string values.
 
@@ -199,7 +196,6 @@ class Bookmark:
         Use :class:`Bookmarks` instead.
     """
 
-    @deprecated("Use the `Bookmarks`` class instead.")
     def __init__(self, *values: str) -> None:
         if values:
             bookmarks = []
@@ -234,7 +230,7 @@ class Bookmark:
 class Bookmarks:
     """Container for an immutable set of bookmark string values.
 
-    Bookmarks are used to causally chain session.
+    Bookmarks are used to causally chain sessions.
     See :meth:`Session.last_bookmarks` or :meth:`AsyncSession.last_bookmarks`
     for more information.
 
@@ -250,9 +246,7 @@ class Bookmarks:
         """
         :returns: repr string with sorted values
         """
-        return "<Bookmarks values={{{}}}>".format(
-            ", ".join(map(repr, sorted(self._raw_values)))
-        )
+        return "<Bookmarks values={{{}}}>".format(", ".join(map(repr, sorted(self._raw_values))))
 
     def __bool__(self) -> bool:
         """True if there are bookmarks in the container."""
@@ -294,8 +288,7 @@ class Bookmarks:
         bookmarks = []
         for value in values:
             if not isinstance(value, str):
-                raise TypeError("Raw bookmark values must be str. "
-                                "Found {}".format(type(value)))
+                raise TypeError("Raw bookmark values must be str. " "Found {}".format(type(value)))
             try:
                 value.encode("ascii")
             except UnicodeEncodeError as e:
@@ -306,8 +299,7 @@ class Bookmarks:
 
 
 class ServerInfo:
-    """ Represents a package of information relating to a Neo4j server.
-    """
+    """Represents a package of information relating to a Neo4j server."""
 
     def __init__(self, address: Address, protocol_version: Version):
         self._address = address
@@ -316,13 +308,12 @@ class ServerInfo:
 
     @property
     def address(self) -> Address:
-        """ Network address of the remote server.
-        """
+        """Network address of the remote server."""
         return self._address
 
     @property
     def protocol_version(self) -> Version:
-        """ Bolt protocol version with which the remote server
+        """Bolt protocol version with which the remote server
         communicates. This is returned as a :class:`.Version`
         object, which itself extends a simple 2-tuple of
         (major, minor) integers.
@@ -331,21 +322,21 @@ class ServerInfo:
 
     @property
     def agent(self) -> str:
-        """ Server agent string by which the remote server identifies
+        """Server agent string by which the remote server identifies
         itself.
         """
         return str(self._metadata.get("server"))
 
     @property  # type: ignore
-    @deprecated("The connection id is considered internal information "
-                "and will no longer be exposed in future versions.")
+    @deprecated(
+        "The connection id is considered internal information " "and will no longer be exposed in future versions."
+    )
     def connection_id(self):
-        """ Unique identifier for the remote server connection.
-        """
+        """Unique identifier for the remote server connection."""
         return self._metadata.get("connection_id")
 
     def update(self, metadata: dict) -> None:
-        """ Update server information with extra metadata. This is
+        """Update server information with extra metadata. This is
         typically drawn from the metadata received after successful
         connection initialisation.
         """
@@ -422,14 +413,11 @@ class BookmarkManager(_Protocol, metaclass=abc.ABCMeta):
         * The ``get_all_bookmarks`` method was removed.
         * The ``forget`` method was removed.
 
-    .. versionchanged:: 5.8 stabilized from experimental
+    .. versionchanged:: 5.8 Stabilized from experimental.
     """
 
     @abc.abstractmethod
-    def update_bookmarks(
-        self, previous_bookmarks: t.Collection[str],
-        new_bookmarks: t.Collection[str]
-    ) -> None:
+    def update_bookmarks(self, previous_bookmarks: t.Collection[str], new_bookmarks: t.Collection[str]) -> None:
         """Handle bookmark updates.
 
         :param previous_bookmarks:
@@ -459,21 +447,18 @@ class AsyncBookmarkManager(_Protocol, metaclass=abc.ABCMeta):
     .. versionchanged:: 5.3
         See :class:`.BookmarkManager` for changes.
 
-    .. versionchanged:: 5.8 stabilized from experimental
+    .. versionchanged:: 5.8 Stabilized from experimental.
     """
 
     @abc.abstractmethod
     async def update_bookmarks(
-        self, previous_bookmarks: t.Collection[str],
-        new_bookmarks: t.Collection[str]
-    ) -> None:
-        ...
+        self, previous_bookmarks: t.Collection[str], new_bookmarks: t.Collection[str]
+    ) -> None: ...
 
     update_bookmarks.__doc__ = BookmarkManager.update_bookmarks.__doc__
 
     @abc.abstractmethod
-    async def get_bookmarks(self) -> t.Collection[str]:
-        ...
+    async def get_bookmarks(self) -> t.Collection[str]: ...
 
     get_bookmarks.__doc__ = BookmarkManager.get_bookmarks.__doc__
 
@@ -508,17 +493,19 @@ def parse_neo4j_uri(uri):
         driver_type = DRIVER_NEO4J
         security_type = SECURITY_TYPE_SECURE
     else:
-        raise ConfigurationError("URI scheme {!r} is not supported. Supported URI schemes are {}. Examples: bolt://host[:port] or neo4j://host[:port][?routing_context]".format(
-            parsed.scheme,
-            [
-                URI_SCHEME_BOLT,
-                URI_SCHEME_BOLT_SELF_SIGNED_CERTIFICATE,
-                URI_SCHEME_BOLT_SECURE,
-                URI_SCHEME_NEO4J,
-                URI_SCHEME_NEO4J_SELF_SIGNED_CERTIFICATE,
-                URI_SCHEME_NEO4J_SECURE
-            ]
-        ))
+        raise ConfigurationError(
+            "URI scheme {!r} is not supported. Supported URI schemes are {}. Examples: bolt://host[:port] or neo4j://host[:port][?routing_context]".format(
+                parsed.scheme,
+                [
+                    URI_SCHEME_BOLT,
+                    URI_SCHEME_BOLT_SELF_SIGNED_CERTIFICATE,
+                    URI_SCHEME_BOLT_SECURE,
+                    URI_SCHEME_NEO4J,
+                    URI_SCHEME_NEO4J_SELF_SIGNED_CERTIFICATE,
+                    URI_SCHEME_NEO4J_SECURE,
+                ],
+            )
+        )
 
     return driver_type, security_type, parsed
 
@@ -534,8 +521,7 @@ def check_access_mode(access_mode):
 
 
 def parse_routing_context(query):
-    """ Parse the query portion of a URI to generate a routing context dictionary.
-    """
+    """Parse the query portion of a URI to generate a routing context dictionary."""
     if not query:
         return {}
 
@@ -544,7 +530,10 @@ def parse_routing_context(query):
     for key in parameters:
         value_list = parameters[key]
         if len(value_list) != 1:
-            raise ConfigurationError("Duplicated query parameters with key '%s', value '%s' found in query string '%s'" % (key, value_list, query))
+            raise ConfigurationError(
+                "Duplicated query parameters with key '%s', value '%s' found in query string '%s'"
+                % (key, value_list, query)
+            )
         value = value_list[0]
         if not value:
             raise ConfigurationError("Invalid parameters:'%s=%s' in query string '%s'." % (key, value, query))

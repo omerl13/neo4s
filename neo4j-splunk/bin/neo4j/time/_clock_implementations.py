@@ -1,8 +1,6 @@
 # Copyright (c) "Neo4j"
 # Neo4j Sweden AB [https://neo4j.com]
 #
-# This file is part of Neo4j.
-#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -24,6 +22,7 @@ from ctypes import (
     Structure,
 )
 from platform import uname
+from time import time
 
 from . import (
     Clock,
@@ -40,7 +39,7 @@ __all__ = [
 
 
 class SafeClock(Clock):
-    """ Clock implementation that should work for any variant of Python.
+    """Clock implementation that should work for any variant of Python.
     This clock is guaranteed microsecond precision.
     """
 
@@ -53,13 +52,12 @@ class SafeClock(Clock):
         return True
 
     def utc_time(self):
-        from time import time
         seconds, nanoseconds = nano_divmod(int(time() * 1000000), 1000000)
         return ClockTime(seconds, nanoseconds * 1000)
 
 
 class PEP564Clock(Clock):
-    """ Clock implementation based on the PEP564 additions to Python 3.7.
+    """Clock implementation based on the PEP564 additions to Python 3.7.
     This clock is guaranteed nanosecond precision.
     """
 
@@ -78,13 +76,14 @@ class PEP564Clock(Clock):
 
     def utc_time(self):
         from time import time_ns
+
         t = time_ns()
         seconds, nanoseconds = divmod(t, 1000000000)
         return ClockTime(seconds, nanoseconds)
 
 
 class LibCClock(Clock):
-    """ Clock implementation that works only on platforms that provide
+    """Clock implementation that works only on platforms that provide
     libc. This clock is guaranteed nanosecond precision.
     """
 

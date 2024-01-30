@@ -1,8 +1,6 @@
 # Copyright (c) "Neo4j"
 # Neo4j Sweden AB [https://neo4j.com]
 #
-# This file is part of Neo4j.
-#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -42,8 +40,9 @@ class EagerResult(t.NamedTuple):
 
     .. versionadded:: 5.5
 
-    .. versionchanged:: 5.8 stabilized from experimental
+    .. versionchanged:: 5.8 Stabilized from experimental.
     """
+
     #: Alias for field 0 (``eager_result[0]``)
     records: t.List[Record]
     #: Alias for field 1 (``eager_result[1]``)

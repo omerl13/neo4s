@@ -5,7 +5,7 @@ import socket
 from ... import addressing
 
 
-log = logging.getLogger("neo4j")
+log = logging.getLogger("neo4j.io")
 
 
 def _resolved_addresses_from_info(info, host_name):
@@ -17,23 +17,18 @@ def _resolved_addresses_from_info(info, host_name):
             continue
         if addr not in resolved:
             resolved.append(addr)
-            yield addressing.ResolvedAddress(
-                addr, host_name=host_name
-            )
+            yield addressing.ResolvedAddress(addr, host_name=host_name)
 
 
 class AsyncNetworkUtil:
     @staticmethod
-    async def get_address_info(host, port, *,
-                               family=0, type=0, proto=0, flags=0):
+    async def get_address_info(host, port, *, family=0, type=0, proto=0, flags=0):
         loop = asyncio.get_event_loop()
-        return await loop.getaddrinfo(
-            host, port, family=family, type=type, proto=proto, flags=flags
-        )
+        return await loop.getaddrinfo(host, port, family=family, type=type, proto=proto, flags=flags)
 
     @staticmethod
     async def _dns_resolver(address, family=0):
-        """ Regular DNS resolver. Takes an address object and optional
+        """Regular DNS resolver. Takes an address object and optional
         address family for filtering.
 
         :param address:
@@ -42,8 +37,7 @@ class AsyncNetworkUtil:
         """
         try:
             info = await AsyncNetworkUtil.get_address_info(
-                address.host, address.port, family=family,
-                type=socket.SOCK_STREAM
+                address.host, address.port, family=family, type=socket.SOCK_STREAM
             )
         except OSError:
             raise ValueError("Cannot resolve address {}".format(address))
@@ -51,7 +45,7 @@ class AsyncNetworkUtil:
 
     @staticmethod
     async def resolve_address(address, family=0, resolver=None):
-        """ Carry out domain name resolution on this Address object.
+        """Carry out domain name resolution on this Address object.
 
         If a resolver function is supplied, and is callable, this is
         called first, with this object as its argument. This may yield
@@ -79,20 +73,13 @@ class AsyncNetworkUtil:
             else:
                 resolved_addresses = resolver(address)
             for address in map(addressing.Address, resolved_addresses):
-                log.debug("[#0000]  _: <RESOLVE> custom resolver out: %s",
-                          address)
-                for resolved_address in await AsyncNetworkUtil._dns_resolver(
-                    address, family=family
-                ):
-                    log.debug("[#0000]  _: <RESOLVE> dns resolver out: %s",
-                              resolved_address)
+                log.debug("[#0000]  _: <RESOLVE> custom resolver out: %s", address)
+                for resolved_address in await AsyncNetworkUtil._dns_resolver(address, family=family):
+                    log.debug("[#0000]  _: <RESOLVE> dns resolver out: %s", resolved_address)
                     yield resolved_address
         else:
-            for resolved_address in await AsyncNetworkUtil._dns_resolver(
-                address, family=family
-            ):
-                log.debug("[#0000]  _: <RESOLVE> dns resolver out: %s",
-                          resolved_address)
+            for resolved_address in await AsyncNetworkUtil._dns_resolver(address, family=family):
+                log.debug("[#0000]  _: <RESOLVE> dns resolver out: %s", resolved_address)
                 yield resolved_address
 
 
@@ -103,7 +90,7 @@ class NetworkUtil:
 
     @staticmethod
     def _dns_resolver(address, family=0):
-        """ Regular DNS resolver. Takes an address object and optional
+        """Regular DNS resolver. Takes an address object and optional
         address family for filtering.
 
         :param address:
@@ -111,17 +98,14 @@ class NetworkUtil:
         :returns:
         """
         try:
-            info = NetworkUtil.get_address_info(
-                address.host, address.port, family=family,
-                type=socket.SOCK_STREAM
-            )
+            info = NetworkUtil.get_address_info(address.host, address.port, family=family, type=socket.SOCK_STREAM)
         except OSError:
             raise ValueError("Cannot resolve address {}".format(address))
         return _resolved_addresses_from_info(info, address._host_name)
 
     @staticmethod
     def resolve_address(address, family=0, resolver=None):
-        """ Carry out domain name resolution on this Address object.
+        """Carry out domain name resolution on this Address object.
 
         If a resolver function is supplied, and is callable, this is
         called first, with this object as its argument. This may yield
@@ -142,21 +126,14 @@ class NetworkUtil:
             yield address
             return
 
-        addressing.log.debug("[#0000]  _: <RESOLVE> in: %s", address)
+        log.debug("[#0000]  _: <RESOLVE> in: %s", address)
         if resolver:
             for address in map(addressing.Address, resolver(address)):
-                log.debug("[#0000]  _: <RESOLVE> custom resolver out: %s",
-                          address)
-                for resolved_address in NetworkUtil._dns_resolver(
-                    address, family=family
-                ):
-                    log.debug("[#0000]  _: <RESOLVE> dns resolver out: %s",
-                              resolved_address)
+                log.debug("[#0000]  _: <RESOLVE> custom resolver out: %s", address)
+                for resolved_address in NetworkUtil._dns_resolver(address, family=family):
+                    log.debug("[#0000]  _: <RESOLVE> dns resolver out: %s", resolved_address)
                     yield resolved_address
         else:
-            for resolved_address in NetworkUtil._dns_resolver(
-                address, family=family
-            ):
-                log.debug("[#0000]  _: <RESOLVE> dns resolver out: %s",
-                          resolved_address)
+            for resolved_address in NetworkUtil._dns_resolver(address, family=family):
+                log.debug("[#0000]  _: <RESOLVE> dns resolver out: %s", resolved_address)
                 yield resolved_address

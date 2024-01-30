@@ -1,8 +1,6 @@
 # Copyright (c) "Neo4j"
 # Neo4j Sweden AB [https://neo4j.com]
 #
-# This file is part of Neo4j.
-#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -32,6 +30,7 @@ __all__ = [
     "NotificationCategory",
     "NotificationSeverity",
     "RoutingControl",
+    "TelemetryAPI",
 ]
 
 
@@ -39,7 +38,7 @@ class NotificationMinimumSeverity(str, Enum):
     """Filter notifications returned by the server by minimum severity.
 
     Inherits from :class:`str` and :class:`Enum`. Every driver API accepting a
-    :class:`.NotificationFilter` value will also accept a string::
+    :class:`.NotificationMinimumSeverity` value will also accept a string::
 
         >>> NotificationMinimumSeverity.OFF == "OFF"
         True
@@ -127,22 +126,19 @@ class NotificationDisabledCategory(str, Enum):
     """Filter notifications returned by the server by category.
 
     Inherits from :class:`str` and :class:`Enum`. Every driver API accepting a
-    :class:`.NotificationFilter` value will also accept a string::
+    :class:`.NotificationDisabledCategory` value will also accept a string::
 
-        >>> NotificationDisabledCategory.HINT == "HINT"
-        True
         >>> NotificationDisabledCategory.UNRECOGNIZED == "UNRECOGNIZED"
-        True
-        >>> NotificationDisabledCategory.UNSUPPORTED == "UNSUPPORTED"
         True
         >>> NotificationDisabledCategory.PERFORMANCE == "PERFORMANCE"
         True
         >>> NotificationDisabledCategory.DEPRECATION == "DEPRECATION"
         True
-        >>> NotificationDisabledCategory.GENERIC == "GENERIC"
-        True
 
     .. versionadded:: 5.7
+
+    .. versionchanged:: 5.14
+        Added categories :attr:`.SECURITY` and :attr:`.TOPOLOGY`.
 
     .. seealso::
         driver config :ref:`driver-notifications-disabled-categories-ref`,
@@ -155,6 +151,9 @@ class NotificationDisabledCategory(str, Enum):
     PERFORMANCE = "PERFORMANCE"
     DEPRECATION = "DEPRECATION"
     GENERIC = "GENERIC"
+    SECURITY = "SECURITY"
+    #: Requires server version 5.13 or newer.
+    TOPOLOGY = "TOPOLOGY"
 
 
 if t.TYPE_CHECKING:
@@ -167,6 +166,8 @@ if t.TYPE_CHECKING:
             "PERFORMANCE",
             "DEPRECATION",
             "GENERIC",
+            "SECURITY",
+            "TOPOLOGY",
         ],
     ]
     __all__.append("T_NotificationDisabledCategory")
@@ -187,6 +188,9 @@ class NotificationCategory(str, Enum):
 
     .. versionadded:: 5.7
 
+    .. versionchanged:: 5.14
+        Added categories :attr:`.SECURITY` and :attr:`.TOPOLOGY`.
+
     .. seealso:: :attr:`SummaryNotification.category`
     """
 
@@ -196,6 +200,8 @@ class NotificationCategory(str, Enum):
     PERFORMANCE = "PERFORMANCE"
     DEPRECATION = "DEPRECATION"
     GENERIC = "GENERIC"
+    SECURITY = "SECURITY"
+    TOPOLOGY = "TOPOLOGY"
     #: Used when the server provides a Category which the driver is unaware of.
     #: This can happen when connecting to a server newer than the driver or
     #: before notification categories were introduced.
@@ -219,11 +225,20 @@ class RoutingControl(str, Enum):
     .. versionadded:: 5.5
 
     .. versionchanged:: 5.8
-        * renamed ``READERS`` to ``READ`` and ``WRITERS`` to ``WRITE``
-        * stabilized from experimental
+
+        * Renamed ``READERS`` to ``READ`` and ``WRITERS`` to ``WRITE``.
+        * Stabilized from experimental.
     """
+
     READ = "r"
     WRITE = "w"
+
+
+class TelemetryAPI(int, Enum):
+    TX_FUNC = 0
+    TX = 1
+    AUTO_COMMIT = 2
+    DRIVER = 3
 
 
 if t.TYPE_CHECKING:

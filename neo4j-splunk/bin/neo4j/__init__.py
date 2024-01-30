@@ -1,8 +1,6 @@
 # Copyright (c) "Neo4j"
 # Neo4j Sweden AB [https://neo4j.com]
 #
-# This file is part of Neo4j.
-#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -138,7 +136,6 @@ __all__ = [
     "NotificationMinimumSeverity",
     "Neo4jDriver",
     "NotificationCategory",
-    "NotificationFilter",
     "NotificationSeverity",
     "PoolConfig",
     "PreviewWarning",
@@ -147,7 +144,6 @@ __all__ = [
     "Record",
     "Result",
     "ResultSummary",
-    "RenewableAuth",
     "RoutingControl",
     "ServerInfo",
     "Session",
@@ -173,15 +169,11 @@ _log = _getLogger("neo4j")
 
 def __getattr__(name):
     # TODO: 6.0 - remove this
-    if name in (
-        "log", "Config", "PoolConfig", "SessionConfig", "WorkspaceConfig"
-    ):
-        from ._meta import deprecation_warn
-        deprecation_warn(
+    if name in ("log", "Config", "PoolConfig", "SessionConfig", "WorkspaceConfig"):
+        _deprecation_warn(
             "Importing {} from neo4j is deprecated without replacement. It's "
-            "internal and will be removed in a future version."
-            .format(name),
-            stack_level=2
+            "internal and will be removed in a future version.".format(name),
+            stack_level=2,
         )
         return globals()[f"_{name}"]
     raise AttributeError(f"module {__name__} has no attribute {name}")

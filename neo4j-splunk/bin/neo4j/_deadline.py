@@ -1,8 +1,6 @@
 # Copyright (c) "Neo4j"
 # Neo4j Sweden AB [https://neo4j.com]
 #
-# This file is part of Neo4j.
-#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -17,7 +15,7 @@
 
 
 from contextlib import contextmanager
-from time import perf_counter
+from time import monotonic
 
 
 class Deadline:
@@ -25,7 +23,7 @@ class Deadline:
         if timeout is None or timeout == float("inf"):
             self._deadline = float("inf")
         else:
-            self._deadline = perf_counter() + timeout
+            self._deadline = monotonic() + timeout
         self._original_timeout = timeout
 
     @property
@@ -38,7 +36,7 @@ class Deadline:
     def to_timeout(self):
         if self._deadline == float("inf"):
             return None
-        timeout = self._deadline - perf_counter()
+        timeout = self._deadline - monotonic()
         return timeout if timeout > 0 else 0
 
     def __eq__(self, other):
@@ -91,9 +89,7 @@ def connection_deadline(connection, deadline):
         # nothing to do here
         yield
         return
-    deadline = merge_deadlines(
-        (d for d in (deadline, original_deadline) if d is not None)
-    )
+    deadline = merge_deadlines((d for d in (deadline, original_deadline) if d is not None))
     connection.socket.set_deadline(deadline)
     try:
         yield

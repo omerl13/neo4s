@@ -1,8 +1,6 @@
 # Copyright (c) "Neo4j"
 # Neo4j Sweden AB [https://neo4j.com]
 #
-# This file is part of Neo4j.
-#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -18,12 +16,12 @@
 
 from collections.abc import MutableSet
 from logging import getLogger
-from time import perf_counter
+from time import monotonic
 
 from .addressing import Address
 
 
-log = getLogger("neo4j")
+log = getLogger("neo4j.pool")
 
 
 class OrderedSet(MutableSet):
@@ -79,7 +77,7 @@ class RoutingTable:
 
     @classmethod
     def parse_routing_info(cls, *, database, servers, ttl):
-        """ Parse the records returned from the procedure call and
+        """Parse the records returned from the procedure call and
         return a new RoutingTable instance.
         """
         routers = []
@@ -108,7 +106,7 @@ class RoutingTable:
         self.readers = OrderedSet(readers)
         self.writers = OrderedSet(writers)
         self.initialized_without_writers = not self.writers
-        self.last_updated_time = perf_counter()
+        self.last_updated_time = monotonic()
         self.ttl = ttl
         self.database = database
 
@@ -126,44 +124,54 @@ class RoutingTable:
         return address in self.routers or address in self.readers or address in self.writers
 
     def is_fresh(self, readonly=False):
-        """ Indicator for whether routing information is still usable.
-        """
+        """Indicator for whether routing information is still usable."""
         assert isinstance(readonly, bool)
-        expired = self.last_updated_time + self.ttl <= perf_counter()
+        expired = self.last_updated_time + self.ttl <= monotonic()
         if readonly:
             has_server_for_mode = bool(self.readers)
         else:
             has_server_for_mode = bool(self.writers)
         res = not expired and self.routers and has_server_for_mode
-        log.debug("[#0000]  _: <ROUTING> checking table freshness "
-                  "(readonly=%r): table expired=%r, "
-                  "has_server_for_mode=%r, table routers=%r => %r",
-                  readonly, expired, has_server_for_mode, self.routers, res)
+        log.debug(
+            "[#0000]  _: <ROUTING> checking table freshness "
+            "(readonly=%r): table expired=%r, "
+            "has_server_for_mode=%r, table routers=%r => %r",
+            readonly,
+            expired,
+            has_server_for_mode,
+            self.routers,
+            res,
+        )
         return res
 
     def should_be_purged_from_memory(self):
-        """ Check if the routing table is stale and not used for a long time and should be removed from memory.
+        """Check if the routing table is stale and not used for a long time and should be removed from memory.
 
         :returns: Returns true if it is old and not used for a while.
         :rtype: bool
         """
         from ._conf import RoutingConfig
-        perf_time = perf_counter()
+
+        perf_time = monotonic()
         res = self.last_updated_time + self.ttl + RoutingConfig.routing_table_purge_delay <= perf_time
-        log.debug("[#0000]  _: <ROUTING> purge check: "
-                  "last_updated_time=%r, ttl=%r, perf_time=%r => %r",
-                  self.last_updated_time, self.ttl, perf_time, res)
+        log.debug(
+            "[#0000]  _: <ROUTING> purge check: " "last_updated_time=%r, ttl=%r, perf_time=%r => %r",
+            self.last_updated_time,
+            self.ttl,
+            perf_time,
+            res,
+        )
         return res
 
     def update(self, new_routing_table):
-        """ Update the current routing table with new routing information
+        """Update the current routing table with new routing information
         from a replacement table.
         """
         self.routers.replace(new_routing_table.routers)
         self.readers.replace(new_routing_table.readers)
         self.writers.replace(new_routing_table.writers)
         self.initialized_without_writers = not self.writers
-        self.last_updated_time = perf_counter()
+        self.last_updated_time = monotonic()
         self.ttl = new_routing_table.ttl
         log.debug("[#0000]  _: <ROUTING> updated table=%r", self)
 

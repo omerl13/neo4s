@@ -1,8 +1,6 @@
 # Copyright (c) "Neo4j"
 # Neo4j Sweden AB [https://neo4j.com]
 #
-# This file is part of Neo4j.
-#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -33,6 +31,7 @@ from ...exceptions import (
     SessionError,
     SessionExpired,
 )
+from .._debug import NonConcurrentMethodChecker
 from ..io import (
     AcquireAuth,
     Neo4jPool,
@@ -42,7 +41,7 @@ from ..io import (
 log = logging.getLogger("neo4j")
 
 
-class Workspace:
+class Workspace(NonConcurrentMethodChecker):
 
     def __init__(self, pool, config):
         assert isinstance(config, WorkspaceConfig)
@@ -58,6 +57,7 @@ class Workspace:
         self._last_from_bookmark_manager = None
         # Workspace has been closed.
         self._closed = False
+        super().__init__()
 
     def __del__(self):
         if self._closed:
@@ -93,26 +93,27 @@ class Workspace:
             prepared_bookmarks = tuple(bookmarks.raw_values)
         elif hasattr(bookmarks, "__iter__"):
             deprecation_warn(
-                "Passing an iterable as `bookmarks` to `Session` is "
-                "deprecated. Please use a `Bookmarks` instance.",
-                stack_level=5
+                "Passing an iterable as `bookmarks` to `Session` is " "deprecated. Please use a `Bookmarks` instance.",
+                stack_level=5,
             )
             prepared_bookmarks = tuple(bookmarks)
         elif not bookmarks:
             prepared_bookmarks = ()
         else:
-            raise TypeError("Bookmarks must be an instance of Bookmarks or an "
-                            "iterable of raw bookmarks (deprecated).")
+            raise TypeError(
+                "Bookmarks must be an instance of Bookmarks or an " "iterable of raw bookmarks (deprecated)."
+            )
         self._initial_bookmarks = self._bookmarks = prepared_bookmarks
 
-    def _get_bookmarks(self,):
+    def _get_bookmarks(
+        self,
+    ):
         if self._bookmark_manager is None:
             return self._bookmarks
 
-        self._last_from_bookmark_manager = tuple({
-            *Util.callback(self._bookmark_manager.get_bookmarks),
-            *self._initial_bookmarks
-        })
+        self._last_from_bookmark_manager = tuple(
+            {*Util.callback(self._bookmark_manager.get_bookmarks), *self._initial_bookmarks}
+        )
         return self._last_from_bookmark_manager
 
     def _update_bookmarks(self, new_bookmarks):
@@ -123,10 +124,7 @@ class Workspace:
         if self._bookmark_manager is None:
             return
         previous_bookmarks = self._last_from_bookmark_manager
-        Util.callback(
-            self._bookmark_manager.update_bookmarks,
-            previous_bookmarks, new_bookmarks
-        )
+        Util.callback(self._bookmark_manager.update_bookmarks, previous_bookmarks, new_bookmarks)
 
     def _update_bookmark(self, bookmark):
         if not bookmark:
@@ -147,8 +145,7 @@ class Workspace:
             self._connection.fetch_all()
             self._disconnect()
         if not self._cached_database:
-            if (self._config.database is not None
-                    or not isinstance(self._pool, Neo4jPool)):
+            if self._config.database is not None or not isinstance(self._pool, Neo4jPool):
                 self._set_cached_database(self._config.database)
             else:
                 # This is the first time we open a connection to a server in a
@@ -164,7 +161,7 @@ class Workspace:
                     bookmarks=self._get_bookmarks(),
                     auth=auth,
                     acquisition_timeout=acquisition_timeout,
-                    database_callback=self._set_cached_database
+                    database_callback=self._set_cached_database,
                 )
         acquire_kwargs_ = {
             "access_mode": access_mode,
@@ -191,6 +188,7 @@ class Workspace:
                 self._connection = None
             self._connection_access_mode = None
 
+    @NonConcurrentMethodChecker.non_concurrent_method
     def close(self) -> None:
         if self._closed:
             return

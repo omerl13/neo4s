@@ -1,8 +1,6 @@
 # Copyright (c) "Neo4j"
 # Neo4j Sweden AB [https://neo4j.com]
 #
-# This file is part of Neo4j.
-#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -24,7 +22,7 @@ from ...packstream import Structure
 
 
 def hydrate_point(srid, *coordinates):
-    """ Create a new instance of a Point subclass from a raw
+    """Create a new instance of a Point subclass from a raw
     set of fields. The subclass chosen is determined by the
     given SRID; a ValueError will be raised if no such
     subclass can be found.
@@ -42,7 +40,7 @@ def hydrate_point(srid, *coordinates):
 
 
 def dehydrate_point(value):
-    """ Dehydrator for Point data.
+    """Dehydrator for Point data.
 
     :param value:
     :type value: Point

@@ -1,8 +1,6 @@
 # Copyright (c) "Neo4j"
 # Neo4j Sweden AB [https://neo4j.com]
 #
-# This file is part of Neo4j.
-#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -77,7 +75,7 @@ class AsyncRLock(asyncio.Lock):
             extra += f" waiters={waiters_match.group(1)}"
         if self._owner:
             extra += f" owner={self._owner}"
-        return f'<{res[1:-1]} [{extra}]>'
+        return f"<{res[1:-1]} [{extra}]>"
 
     def is_owner(self, task=None):
         if task is None:
@@ -100,10 +98,14 @@ class AsyncRLock(asyncio.Lock):
             # Hence, we flag this task as cancelled again, so that the next
             # `await` will raise the CancelledError.
             asyncio.current_task().cancel()
-        if task.done() and task.exception() is None:
-            self._owner = me
-            self._count = 1
-            return True
+        if task.done():
+            exception = task.exception()
+            if exception is None:
+                self._owner = me
+                self._count = 1
+                return True
+            else:
+                raise exception
         task.cancel()
         return False
 
@@ -132,6 +134,8 @@ class AsyncRLock(asyncio.Lock):
             try:
                 await wait_for(fut, timeout)
             except asyncio.CancelledError:
+                if fut.cancelled():
+                    raise
                 already_finished = not fut.cancel()
                 if already_finished:
                     # Too late to cancel the acquisition.
@@ -244,7 +248,7 @@ class AsyncCooperativeRLock:
             extra = f"locked {self._count} times by owner:{self._owner}"
         else:
             extra = "unlocked"
-        return f'<{res[1:-1]} [{extra}]>'
+        return f"<{res[1:-1]} [{extra}]>"
 
     def locked(self):
         """Return True if lock is acquired."""
@@ -267,9 +271,7 @@ class AsyncCooperativeRLock:
         if self._owner is me:
             self._count += 1
             return True
-        raise RuntimeError(
-            "Cannot acquire a foreign locked cooperative lock."
-        )
+        raise RuntimeError("Cannot acquire a foreign locked cooperative lock.")
 
     def release(self):
         """Release a lock.
@@ -339,12 +341,11 @@ class AsyncCondition:
                 if self._loop is None:
                     self._loop = loop
         if loop is not self._loop:
-            raise RuntimeError(f'{self!r} is bound to a different event loop')
+            raise RuntimeError(f"{self!r} is bound to a different event loop")
         return loop
 
     async def __aenter__(self):
-        if isinstance(self._lock, (AsyncCooperativeLock,
-                                   AsyncCooperativeRLock)):
+        if isinstance(self._lock, (AsyncCooperativeLock, AsyncCooperativeRLock)):
             self._lock.acquire()
         else:
             await self.acquire()
@@ -357,10 +358,10 @@ class AsyncCondition:
 
     def __repr__(self):
         res = super().__repr__()
-        extra = 'locked' if self.locked() else 'unlocked'
+        extra = "locked" if self.locked() else "unlocked"
         if self._waiters:
-            extra = f'{extra}, waiters:{len(self._waiters)}'
-        return f'<{res[1:-1]} [{extra}]>'
+            extra = f"{extra}, waiters:{len(self._waiters)}"
+        return f"<{res[1:-1]} [{extra}]>"
 
     async def _wait(self, timeout=None, me=None):
         """Wait until notified.
@@ -374,7 +375,7 @@ class AsyncCondition:
         awakened, it re-acquires the lock and returns True.
         """
         if not self.locked():
-            raise RuntimeError('cannot wait on un-acquired lock')
+            raise RuntimeError("cannot wait on un-acquired lock")
 
         cancelled = False
         if isinstance(self._lock, AsyncRLock):
@@ -397,8 +398,7 @@ class AsyncCondition:
 
         finally:
             # Must reacquire lock even if wait is cancelled
-            if isinstance(self._lock, (AsyncCooperativeLock,
-                                       AsyncCooperativeRLock)):
+            if isinstance(self._lock, (AsyncCooperativeLock, AsyncCooperativeRLock)):
                 self._lock.acquire()
             else:
                 while True:
@@ -443,7 +443,7 @@ class AsyncCondition:
         not release the lock, its caller should.
         """
         if not self.locked():
-            raise RuntimeError('cannot notify on un-acquired lock')
+            raise RuntimeError("cannot notify on un-acquired lock")
 
         idx = 0
         for fut in self._waiters:

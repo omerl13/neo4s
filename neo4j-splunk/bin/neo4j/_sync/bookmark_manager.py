@@ -1,8 +1,6 @@
 # Copyright (c) "Neo4j"
 # Neo4j Sweden AB [https://neo4j.com]
 #
-# This file is part of Neo4j.
-#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -32,9 +30,7 @@ TBmSupplier = t.Callable[[], t.Union[Bookmarks, t.Union[Bookmarks]]]
 TBmConsumer = t.Callable[[Bookmarks], t.Union[None, t.Union[None]]]
 
 
-def _bookmarks_to_set(
-    bookmarks: t.Union[Bookmarks, t.Iterable[str]]
-) -> t.Set[str]:
+def _bookmarks_to_set(bookmarks: t.Union[Bookmarks, t.Iterable[str]]) -> t.Set[str]:
     if isinstance(bookmarks, Bookmarks):
         return set(bookmarks.raw_values)
     return set(map(str, bookmarks))
@@ -45,7 +41,7 @@ class Neo4jBookmarkManager(BookmarkManager):
         self,
         initial_bookmarks: t.Union[None, Bookmarks, t.Iterable[str]] = None,
         bookmarks_supplier: t.Optional[TBmSupplier] = None,
-        bookmarks_consumer: t.Optional[TBmConsumer] = None
+        bookmarks_consumer: t.Optional[TBmConsumer] = None,
     ) -> None:
         super().__init__()
         self._bookmarks_supplier = bookmarks_supplier
@@ -53,16 +49,10 @@ class Neo4jBookmarkManager(BookmarkManager):
         if not initial_bookmarks:
             self._bookmarks = set()
         else:
-            self._bookmarks = set(getattr(
-                initial_bookmarks, "raw_values",
-                t.cast(t.Iterable[str], initial_bookmarks)
-            ))
+            self._bookmarks = set(getattr(initial_bookmarks, "raw_values", t.cast(t.Iterable[str], initial_bookmarks)))
         self._lock = CooperativeLock()
 
-    def update_bookmarks(
-        self, previous_bookmarks: t.Collection[str],
-        new_bookmarks: t.Collection[str]
-    ) -> None:
+    def update_bookmarks(self, previous_bookmarks: t.Collection[str], new_bookmarks: t.Collection[str]) -> None:
         if not new_bookmarks:
             return
         with self._lock:
@@ -71,8 +61,7 @@ class Neo4jBookmarkManager(BookmarkManager):
             if self._bookmarks_consumer:
                 curr_bms_snapshot = Bookmarks.from_raw_values(self._bookmarks)
         if self._bookmarks_consumer:
-            Util.callback(self._bookmarks_consumer,
-                                     curr_bms_snapshot)
+            Util.callback(self._bookmarks_consumer, curr_bms_snapshot)
 
     def get_bookmarks(self) -> t.Set[str]:
         with self._lock:

@@ -1,8 +1,6 @@
 # Copyright (c) "Neo4j"
 # Neo4j Sweden AB [https://neo4j.com]
 #
-# This file is part of Neo4j.
-#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -18,7 +16,6 @@
 
 from __future__ import annotations
 
-import logging
 import typing as t
 from socket import (
     AddressFamily,
@@ -30,9 +27,6 @@ from socket import (
 
 if t.TYPE_CHECKING:
     import typing_extensions as te
-
-
-log = logging.getLogger("neo4j")
 
 
 _T = t.TypeVar("_T")
@@ -53,9 +47,9 @@ class _AddressMeta(type(tuple)):  # type: ignore[misc]
 
     def _subclass_by_family(self, family):
         subclasses = [
-            sc for sc in self.__subclasses__()
-            if (sc.__module__ == self.__module__
-                and getattr(sc, "family", None) == family)
+            sc
+            for sc in self.__subclasses__()
+            if (sc.__module__ == self.__module__ and getattr(sc, "family", None) == family)
         ]
         if len(subclasses) != 1:
             raise ValueError(
@@ -108,15 +102,11 @@ class Address(tuple, metaclass=_AddressMeta):
         elif n_parts == 4:
             inst.__class__ = cls.ipv6_cls
         else:
-            raise ValueError("Addresses must consist of either "
-                             "two parts (IPv4) or four parts (IPv6)")
+            raise ValueError("Addresses must consist of either " "two parts (IPv4) or four parts (IPv6)")
         return inst
 
     @classmethod
-    def from_socket(
-        cls,
-        socket: _WithPeerName
-    ) -> Address:
+    def from_socket(cls, socket: _WithPeerName) -> Address:
         """Create an address from a socket object.
 
         Uses the socket's ``getpeername`` method to retrieve the remote
@@ -126,12 +116,7 @@ class Address(tuple, metaclass=_AddressMeta):
         return cls(address)
 
     @classmethod
-    def parse(
-        cls,
-        s: str,
-        default_host: t.Optional[str] = None,
-        default_port: t.Optional[int] = None
-    ) -> Address:
+    def parse(cls, s: str, default_host: t.Optional[str] = None, default_port: t.Optional[int] = None) -> Address:
         """Parse a string into an address.
 
         The string must be in the format ``host:port`` (IPv4) or
@@ -167,8 +152,7 @@ class Address(tuple, metaclass=_AddressMeta):
                 port = int(port)
             except (TypeError, ValueError):
                 pass
-            return cls((host or default_host or "localhost",
-                        port or default_port or 0, 0, 0))
+            return cls((host or default_host or "localhost", port or default_port or 0, 0, 0))
         else:
             # IPv4
             host, _, port = s.partition(":")
@@ -176,15 +160,11 @@ class Address(tuple, metaclass=_AddressMeta):
                 port = int(port)
             except (TypeError, ValueError):
                 pass
-            return cls((host or default_host or "localhost",
-                        port or default_port or 0))
+            return cls((host or default_host or "localhost", port or default_port or 0))
 
     @classmethod
     def parse_list(
-        cls,
-        *s: str,
-        default_host: t.Optional[str] = None,
-        default_port: t.Optional[int] = None
+        cls, *s: str, default_host: t.Optional[str] = None, default_port: t.Optional[int] = None
     ) -> t.List[Address]:
         """Parse multiple addresses into a list.
 
@@ -208,8 +188,7 @@ class Address(tuple, metaclass=_AddressMeta):
         """
         if not all(isinstance(s0, str) for s0 in s):
             raise TypeError("Address.parse_list requires a string argument")
-        return [cls.parse(a, default_host, default_port)
-                for a in " ".join(s).split()]
+        return [cls.parse(a, default_host, default_port) for a in " ".join(s).split()]
 
     def __repr__(self):
         return "{}({!r})".format(self.__class__.__name__, tuple(self))
